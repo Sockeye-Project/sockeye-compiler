@@ -16,7 +16,7 @@ deviceOffset(OFFSET) :- OFFSET is 16'ff000000.
 sectionSize(SIZE)	 :- SIZE   is 16'00100000.
 
 tableIndex(VA,Index) :- 
-	sprintf(Index,"ARM_L1_OFFSET(0x%16R)",[VA]).
+	sprintf(Index,"TABLE_INDEX(0x%16R)",[VA]).
 
 deviceEntry(PA,Entry) :-
 	sprintf(Entry,"DEVICE_ENTRY(0x%16R)",[PA]).
@@ -75,4 +75,4 @@ pageTable(DeviceRegions,MemoryRegions,Table) :-
 	memoryEntries(MemoryRegions,MemoryEntries),
 	deviceEntries(DeviceRegions,DeviceEntries),
 	append(MemoryEntries,DeviceEntries,Entries),
-	join_string(Entries,",\\\n",Table).
+	join_string(Entries,",\n",Table).

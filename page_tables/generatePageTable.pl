@@ -12,8 +12,10 @@
 :- use_module(decodingNetQueries).
 :- use_module(pageTableGenerator).
 
-generate :-
-	loadnet("sockeyefacts/omap4460"),
+generate(Net,Template) :-
+    split_string(Net,""," ",[NetPath]),
+    split_string(Template,""," ",[TemplatePath]),
+	loadnet(NetPath),
 	CPU = 'CORTEXA9',
 	DeviceIds = ['UART3','GIC_Intr_Distributor','CKGEN_PRM','CKGEN_CM1'],
 	MemoryIds = ['SDRAM'],
@@ -34,12 +36,12 @@ generate :-
         Next = [Range|Prev]
     ),
 	pageTable(DeviceRegions,MemoryRegions,Table),
-    templateReplace(Table,HeaderFile),
+    templateReplace(TemplatePath,Table,HeaderFile),
     write(HeaderFile).
 
-templateReplace(PageTable,Result) :-
-    open("page_table.h.in", read, TemplateFile),
-    read_string(TemplateFile, end_of_file, _, Template),
+templateReplace(TemplatePath,PageTable,Result) :-
+    open(TemplatePath,read,TemplateFile),
+    read_string(TemplateFile,end_of_file,_,Template),
     close(TemplateFile),
     split_string(Template,"?","",[Before,_,After]),
     concat_string([Before,PageTable,After],Result).
