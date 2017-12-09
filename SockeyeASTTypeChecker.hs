@@ -36,7 +36,7 @@ data Module = Module
     , nodeDecls    :: [NodeDecl]
     } deriving (Show)
 
-data ModuleParamType 
+data ModuleParamType
     = NaturalParam
     | AddressParam
     deriving (Eq)
@@ -46,7 +46,7 @@ instance Show ModuleParamType where
     show AddressParam = "addr"
 
 data Port
-    = InputPort 
+    = InputPort
         { portId    :: Identifier
         , portWidth :: !Integer
         }
@@ -91,7 +91,7 @@ data NodeDecl
     deriving (Show)
 
 data Identifier
-    = SimpleIdent 
+    = SimpleIdent
         { prefix  :: !String }
     | TemplateIdent
         { prefix  :: !String
@@ -108,24 +108,33 @@ data NodeSpec = NodeSpec
     , overlay   :: Maybe OverlaySpec
     } deriving (Show)
 
-data BlockSpec 
+data BlockSpec
     = SingletonBlock
-        { base :: Address }
+        { base :: Address
+        , props :: PropSpec}
     | RangeBlock
         { base  :: Address
         , limit :: Address
+        , props :: PropSpec
         }
     | LengthBlock
         { base :: Address
         , bits :: !Integer
+        , props :: PropSpec
         }
     deriving (Show)
 
-data MapSpec 
+data PropSpec
+    = PropSpec
+      { identifiers :: [String] }
+    deriving(Show)
+
+data MapSpec
     = MapSpec
         { block    :: BlockSpec
         , destNode :: Identifier
         , destBase :: Maybe Address
+        , destProps :: PropSpec
         } deriving (Show)
 
 data OverlaySpec
@@ -139,7 +148,7 @@ data Address
     | ParamAddress !String
     deriving (Show)
 
-data For a 
+data For a
     = For
         { varRanges :: Map String ForRange
         , body      :: a
@@ -151,7 +160,7 @@ data ForRange
     , end   :: ForLimit
     } deriving (Show)
 
-data ForLimit 
+data ForLimit
     = LiteralLimit !Integer
     | ParamLimit !String
     deriving (Show)
