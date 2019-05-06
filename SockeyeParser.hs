@@ -537,3 +537,4 @@ propertyName   = identString <?> "property name"
 identifierName = identString <?> "identifier"
 
 getPositionMeta = fmap ParserMeta getPosition
+

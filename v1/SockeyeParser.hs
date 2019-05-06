@@ -138,11 +138,14 @@ moduleInst = do
             Nothing -> moduleInst
             Just f  -> AST.MultiModuleInst $ f moduleInst
 
-moduleArg = choice [numericalArg, paramArg]
+moduleArg = choice [addressArg, numberArg, paramArg]
     where
-        numericalArg = do
-            num <- addressLiteral
-            return $ AST.NumericalArg num
+        addressArg = do
+            addr <- addressLiteral
+            return $ AST.AddressArg addr
+        numberArg = do
+            num <- numberLiteral
+            return $ AST.NaturalArg num
         paramArg = do
             name <- parameterName
             return $ AST.ParamArg name
@@ -358,7 +361,6 @@ symbol        = P.symbol lexer
 commaSep      = P.commaSep lexer
 commaSep1     = P.commaSep1 lexer
 identString   = P.identifier lexer
-natural       = P.natural lexer <* whiteSpace
 hexadecimal   = symbol "0" *> P.hexadecimal lexer <* whiteSpace
 decimal       = P.decimal lexer <* whiteSpace
 
@@ -390,7 +392,7 @@ identifierName = try ident <?> "identifier"
                 else return ident
 
 numberLiteral  = try decimal <?> "number literal"
-addressLiteral = try natural <?> "address literal (hex)"
+addressLiteral = try hexadecimal <?> "address literal (hex)"
 
 identifierHelper inlineFor = do
     (varRanges, Just ident) <- choice [template identifierName, simple identifierName] <* whiteSpace
