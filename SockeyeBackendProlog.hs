@@ -83,7 +83,7 @@ instance PrologGenerator AST.Module where
     p1 = gen_nat_param_list (AST.parameters m)
     bodyChecks = ["is_list(Id)"]
 
-    nodeDecls = map gen_node_decls (AST.nodeDecls m)
+    nodeDecls = concat $ map gen_node_decls (AST.nodeDecls m)
     instDecls = map gen_inst_decls (AST.instDecls m)
 
     -- bodyDefs = concat $ map (gen_body_defs mi) (AST.definitions m)
@@ -128,7 +128,7 @@ gen_inst_decls x =
 
 -- Generates something a la:
 -- (ID_RAM, INKIND_RAM, OUTKIND_RAM) = (['ram' | Id], memory, memory)
-gen_node_decls :: AST.NodeDeclaration -> String
+gen_node_decls :: AST.NodeDeclaration -> [String]
 gen_node_decls x =
   let
     var = local_nodeid_name $ AST.nodeName x
@@ -140,7 +140,7 @@ gen_node_decls x =
     -- Build the variable list
     pf = AST.nodeName x
     var_tup = tuple [local_nodeid_name pf, "INKIND_" ++ pf, "OUTKIND_" ++ pf]
-    in var_tup ++ " = " ++ decl_tup
+    in [var_tup ++ " = " ++ decl_tup, predicate "node_enum" [local_nodeid_name pf, "_"]]
 
 
 -- This transformation is probably better to be in an AST transform
