@@ -67,8 +67,7 @@ gen_node_param_list :: [AST.NodeDeclaration] -> [String]
 gen_node_param_list ndl = map AST.nodeName ndl
 
 gen_nat_param_list :: [AST.ModuleParameter] -> [String]
-gen_nat_param_list pp = map AST.paramName pp
-
+gen_nat_param_list = map local_param_name . map AST.paramName
 
 
 gen_body_def_maps :: ModuleInfo -> [AST.Definition] -> Integer -> [String]
@@ -112,9 +111,8 @@ local_nodeid_name x = "ID_" ++ x
 local_inst_name :: String -> String
 local_inst_name x = "ID_" ++ x
 
--- Prefix tat as well?
 local_param_name :: String -> String
-local_param_name x = x
+local_param_name x = "P_" ++ x
 
 local_const_name :: String -> String
 local_const_name x = "CONST_" ++ x
@@ -125,7 +123,7 @@ gen_inst_decls :: AST.InstanceDeclaration -> String
 gen_inst_decls x =
   let
     var = local_nodeid_name $ AST.instName x
-    decl = list_prepend (doublequotes $ AST.instName x) (local_param_name "Id")
+    decl = list_prepend (doublequotes $ AST.instName x) ("Id")
     in var ++ " = " ++ decl
 
 -- Generates something a la:
@@ -136,7 +134,7 @@ gen_node_decls x =
     var = local_nodeid_name $ AST.nodeName x
     decl_kind_in = generate (AST.originDomain (AST.nodeType x))
     decl_kind_out = generate (AST.targetDomain (AST.nodeType x))
-    decl_id = list_prepend (doublequotes $ AST.nodeName x) (local_param_name "Id")
+    decl_id = list_prepend (doublequotes $ AST.nodeName x) ("Id")
     decl_tup = tuple [decl_id, decl_kind_in, decl_kind_out]
 
     -- Build the variable list
@@ -320,7 +318,8 @@ gen_body_defs mi x i = case x of
   (AST.Overlays _ src dest) -> (i+1, [state_add_overlay i (generate src) (generate dest)])
   (AST.BlockOverlays _ src dst bits) -> gen_blockoverlay (generate src) (generate dst) bits (i, [])
   -- (AST.Instantiates _ i im args) -> [forall_uqr mi i (predicate ("add_" ++ im) ["IDT_" ++ (AST.refName i)])]
-  (AST.Instantiates _ ii im args) -> (i+1, [ predicate ("add_" ++ im) ([statevar i] ++ [gen_index ii] ++ [statevar (i+1)]) ])
+  (AST.Instantiates _ ii im args) -> (i+1, [ predicate ("add_" ++ im)
+        ([statevar i] ++ [gen_index ii] ++ (map generate args) ++ [statevar (i+1)]) ])
   -- (AST.Binds _ i binds) -> [forall_uqr mi i $ gen_bind_defs ("IDT_" ++ (AST.refName i)) binds]
   (AST.Binds _ ii binds) -> gen_bind_defs (gen_index ii) binds (i, [])
   (AST.Forall _ varName varRange body) -> (0, [forall_qual mi varName varRange body])
