@@ -97,6 +97,16 @@ instance PrologGenerator AST.Module where
       stringify pp = parens $ intercalate "," pp
 
 
+instance PrologGenerator AST.PropertyExpr where
+  generate (AST.And _ a b) = predicate "and" [generate a, generate b]
+  generate (AST.Or _ a b) = predicate "or" [generate a, generate b]
+  generate (AST.Not _ a) = predicate "not" [generate a]
+  generate (AST.Property _ s) = atom s
+  generate (AST.True) = atom "true"
+  generate (AST.False) = atom "false"
+
+
+
 
 
 
@@ -279,13 +289,14 @@ gen_accept :: ModuleInfo -> AST.UnqualifiedRef -> [AST.AddressBlock] -> (Integer
 gen_accept mi _ [] s = s
 gen_accept mi n (xs:x) (i, s) = gen_accept mi n x (i + 1, s ++ [acc])
     where
-        acc = state_add_accept i (predicate "region" [generate n, generate (pack_address_block mi xs)])
+        acc = state_add_accept i (predicate "region" [generate n, generate pab, generate $ properties pab ])
+        pab = pack_address_block mi xs
 
 gen_base_address :: AST.Address -> String
 gen_base_address (AST.Address _ ws) = gen_single_ws $ ws !! 0
   where
     gen_single_ws (AST.ExplicitSet _ ns) = gen_single_ns ns
-    gen_single_ws (AST.Wildcard _)  = "NYI"
+    gen_single_ws (AST.Wildcard _)  = "0 /* WILDCARD_NYI */"
     gen_single_ns (AST.NaturalSet _ nr) = gen_single_nr (nr !! 0)
     gen_single_nr nr = case nr of
         AST.SingletonRange _ b -> generate b
@@ -297,7 +308,7 @@ gen_translate [] s = s
 gen_translate (om:x) (i, s) = gen_translate x (i + 1, s ++ [trs])
     where
         trs = state_add_mapping i (gen_region (srcNode om) (srcAddr om)) (gen_name (targetNode om) (targetAddr om))
-        gen_region nodeid x = predicate "region" [generate nodeid, generate x]
+        gen_region nodeid x = predicate "region" [generate nodeid, generate x, generate $ properties x]
         gen_name nodeid x = predicate "name" [generate nodeid, gen_base_address $ addresses x]
 
 gen_blockoverlay :: String -> String -> [Integer] -> (Integer, [String]) -> (Integer, [String])
@@ -369,7 +380,6 @@ instance PrologGenerator AST.NodeReference where
     AST.InputPortRef _ inst node -> list_prepend (doublequotes $ AST.refName node) (gen_index inst)
 
 instance PrologGenerator MyAddressBlock where
-  -- TODO: add properties
   -- We have to generate something like this, probably involves an extra step in the AST.
   -- pred_99(propspec) :- member(prop1, propspec), member(prop2, propspec
   -- node_accept( ..., block{propspec: pred_99}).
@@ -379,7 +389,7 @@ instance PrologGenerator MyAddressBlock where
       blocks = gen_a $ addresses ab
       gen_a (AST.Address _ ws) = map gen_ws ws
       gen_ws (AST.ExplicitSet _ ns) = generate ns
-      gen_ws (AST.Wildcard _ ) = "NYI"
+      gen_ws (AST.Wildcard _ ) = "block(0,0) /* WILDCARD NYI */"
 
 instance PrologGenerator AST.Domain where
   generate d = case d of
@@ -404,6 +414,7 @@ instance PrologGenerator AST.Address where
 instance PrologGenerator AST.NaturalSet where
   generate a = case a of
      AST.NaturalSet _ [nrs] -> generate nrs
+     AST.NaturalSet _ _ -> "NO MULTIDIM"
 
 instance PrologGenerator AST.NaturalRange where
   generate nr = case nr of
