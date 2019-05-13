@@ -14,6 +14,7 @@ import Control.Exception (throw, Exception)
 import Debug.Trace
 import GHC.Generics
 import Text.Read
+import Numeric (showHex, showIntAtBase)
 
 import qualified SockeyeSymbolTable as SST
 import qualified SockeyeAST as SAST
@@ -242,7 +243,7 @@ instance LISAGenerator SAST.NaturalExpr where
     generate (SAST.Parameter _ name) = name
     generate (SAST.Constant _ name) = name
     generate (SAST.Variable _ name) = name
-    generate (SAST.Literal _ value) = show value
+    generate (SAST.Literal _ value) = "0x" ++ (showHex value "")
 
 instance LISAGenerator SAST.PropertyExpr where
     generate (SAST.And meta _ _) = error ("Property expression not supported: " ++ (show meta))
