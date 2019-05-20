@@ -309,7 +309,7 @@ gen_translate (om:x) (i, s) = gen_translate x (i + 1, s ++ [trs])
     where
         trs = state_add_mapping i (gen_region (srcNode om) (srcAddr om)) (gen_name (targetNode om) (targetAddr om))
         gen_region nodeid x = predicate "region" [generate nodeid, generate x, generate $ properties x]
-        gen_name nodeid x = predicate "name" [generate nodeid, gen_base_address $ addresses x]
+        gen_name nodeid x = predicate "name" [generate nodeid, gen_base_address $ addresses x, generate $ properties x]
 
 gen_blockoverlay :: String -> String -> [Integer] -> (Integer, [String]) -> (Integer, [String])
 gen_blockoverlay src dst [] s = s
