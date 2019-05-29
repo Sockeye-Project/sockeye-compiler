@@ -191,7 +191,7 @@ instance LISAGenerator SAST.UnqualifiedRef where
     generate (SAST.UnqualifiedRef _ name index) = name ++ (generate index)
 
 instance LISAGenerator SAST.NodeReference where
-    generate (SAST.InternalNodeRef _ ref) = generate ref
+    generate (SAST.InternalNodeRef _ ref) = "self." ++ generate ref
     generate (SAST.InputPortRef _ inst node) = (generate inst) ++ "." ++ (generate node)
 
 instance LISAGenerator SAST.ArrayIndex where
@@ -274,7 +274,7 @@ instance LISAGenerator SST.NamedConstant where
     generate _ = "NYI"
 
 instance LISAGenerator SST.ArraySize where
-    generate (SST.ArraySize meta sets) = let 
+    generate (SST.ArraySize meta sets) = let
         bounds = getNaturalSetBounds $ head sets
         lower = fst bounds
         err = case readMaybe lower :: Maybe Integer of
@@ -299,7 +299,7 @@ instance LISAGenerator SPAST.NamedType where
     generate _ = "NYI"
 
 instance LISAGenerator SPAST.PortBinding where
-    generate (SPAST.PortBinding _ port node) = "." ++ (generate port) ++ " => " ++ "self." ++ (generate node)
+    generate (SPAST.PortBinding _ port node) = "." ++ (generate port) ++ " => " ++ (generate node)
 
 instance LISAGenerator SPAST.MapTarget where
     generate (SPAST.MapTarget _ node addr) = (generate node) ++ (generate addr)
@@ -308,10 +308,10 @@ instance LISAGenerator SPAST.MapSpec where
     generate (SPAST.MapSpec _ addrBlock targets) = intercalate "ERROR" (map (\target -> (generate addrBlock) ++ " => " ++ (generate target)) targets)
 
 instance LISAGenerator SPAST.Definition where
-    generate (SPAST.Accepts _ node addrBlocks) = intercalate "\n" (map (\addrBlock -> "self." ++ (generate node) ++ (generate addrBlock) ++ " => " ++ "self." ++ (generate node) ++ (generate addrBlock) ++ ";") addrBlocks)
-    generate (SPAST.Maps _ node specs) = intercalate "\n" (map (\spec -> "self." ++ (generate node) ++ (generate spec) ++ ";") specs)
+    generate (SPAST.Accepts _ node addrBlocks) = intercalate "\n" (map (\addrBlock -> (generate node) ++ (generate addrBlock) ++ " => " ++ (generate node) ++ (generate addrBlock) ++ ";") addrBlocks)
+    generate (SPAST.Maps _ node specs) = (intercalate "\n" (map (\spec -> "self." ++ (generate node) ++ (generate spec) ++ ";") specs))
     generate (SPAST.Converts meta _ _) = error ("Converts not supported: " ++ (show meta))
-    generate (SPAST.Overlays meta node (SAST.InternalNodeRef _ target)) = "self." ++ (generate node) ++ " => self." ++ (generate target) ++ ";"
+    generate (SPAST.Overlays meta node (SAST.InternalNodeRef _ target)) = (generate node) ++ " => " ++ (generate target) ++ ";"
     generate (SPAST.BlockOverlays meta _ _ _) = error ("BlockOverlays not supported: " ++ (show meta))
     generate (SPAST.Instantiates meta ref mod args) = error ("Invalid definition statement: " ++ (show meta))
     generate (SPAST.Binds _ node bindings) = intercalate "\n" (map (\binding -> (generate node) ++ (generate binding) ++ ";") bindings)
@@ -320,7 +320,7 @@ instance LISAGenerator SPAST.Definition where
 generateAssociatedConnection :: (SPAST.NodeDeclaration, SPAST.Definition) -> String
 generateAssociatedConnection ((SPAST.NodeDeclaration _ _ (SST.NodeType _ SST.Memory _ _ _) _ _), (SPAST.Maps _ node specs)) = intercalate "\n" (map (\spec -> (generate node) ++ "_DECODER.pvbus_m_range" ++ (generate spec) ++ ";") specs)
 generateAssociatedConnection ((SPAST.NodeDeclaration _ _ (SST.NodeType _ SST.Memory _ _ _) _ _), (SPAST.Accepts _ node addrBlocks)) = intercalate "\n" (map (\addrBlock -> (generate node) ++ "_DECODER.pvbus_m_range" ++ (generate addrBlock) ++ " => " ++ (generate node) ++ "_MEMORY.pvbus" ++ (generate addrBlock) ++ ";") addrBlocks)
-generateAssociatedConnection ((SPAST.NodeDeclaration _ _ (SST.NodeType _ SST.Memory edge _ _) _ _), (SPAST.Overlays _ node target)) = (generate node) ++ "_DECODER.pvbus_m_range" ++ (generate edge) ++ " => self." ++ (generate target) ++ ";"
+generateAssociatedConnection ((SPAST.NodeDeclaration _ _ (SST.NodeType _ SST.Memory edge _ _) _ _), (SPAST.Overlays _ node target)) = (generate node) ++ "_DECODER.pvbus_m_range" ++ (generate edge) ++ " => " ++ (generate target) ++ ";"
 generateAssociatedConnection (_, def) = generate def
 
 generateDecoderConnection :: (SPAST.NodeDeclaration, SPAST.Definition) -> String
@@ -347,7 +347,7 @@ instance LISAGenerator SPAST.ModuleParameter where
 
 generateModules :: [SPAST.Module] -> Maybe AuxData -> String
 generateModules ms aux = intercalate "\n" (map generateModule (filter (not . SPAST.moduleExtern) ms))
-        where 
+        where
             generateModule m = let
                 moduleName = SPAST.moduleName m
                 ports = generate (Ports aux (SPAST.nodeDecls m))
@@ -382,7 +382,7 @@ getNaturalRangeBounds range = (rangeLowerBound range, rangeUpperBound range)
 matchDefinitionsAndDeclarations :: [SPAST.NodeDeclaration] -> [SPAST.Definition] -> [(SPAST.NodeDeclaration, SPAST.Definition)]
 matchDefinitionsAndDeclarations decls defs = zipped
     where
-        findDecl d = find (\(SPAST.NodeDeclaration _ _ _ name _) -> name == (SAST.refName $ SPAST.node d)) decls 
+        findDecl d = find (\(SPAST.NodeDeclaration _ _ _ name _) -> name == (SAST.refName $ SPAST.node d)) decls
         zipped = zip (map (\def -> if (isJust $ findDecl def) then (fromJust $ findDecl def) else (error ("No declaration found for definition: " ++ (show $ SPAST.defMeta def)))) defs) defs
 
 isAccepts :: SPAST.Definition -> Bool
