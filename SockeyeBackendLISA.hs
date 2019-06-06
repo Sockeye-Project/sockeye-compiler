@@ -25,6 +25,7 @@ import qualified SockeyeParserAST as SPAST
 data AuxData = AuxData
     { connections :: [AuxConnection]
     , parameters :: [AuxParameter]
+    , moduleTranslation :: [AuxModuleTranslation]
     }
     deriving (Generic, Show)
 
@@ -38,6 +39,14 @@ data AuxConnection = AuxConnection
     deriving (Generic, Show)
 
 instance FromJSON AuxConnection
+
+data AuxModuleTranslation = AuxModuleTranslation
+    { nameFrom :: String
+    , nameTo :: String
+    }
+    deriving (Generic, Show)
+
+instance FromJSON AuxModuleTranslation
 
 instance LISAGenerator AuxConnection where
     generate (AuxConnection _ source target) = (generate source) ++ " => " ++ (generate target) ++ ";"
@@ -136,6 +145,14 @@ instance LISAGenerator Composition where
             ++ (intercalate "\n" $ composition ++ derivedComponents)
             ++ "\n}"
 
+
+-- lookup the module name in aux data and return translated string
+mod_name :: Maybe AuxData -> String -> String
+mod_name Nothing name = name 
+mod_name (Just auxData) name = case find (\x -> (nameFrom x) == name) (moduleTranslation auxData)  of
+                                    Nothing -> name
+                                    Just x -> nameTo x
+
 generateInstantiation :: String -> Maybe AuxData -> SPAST.Definition -> [SPAST.Module] -> String
 generateInstantiation moduleName auxData (SPAST.Instantiates meta inst mod args) modules = let
     params = case find (((==) mod) . SPAST.moduleName) modules of
@@ -152,7 +169,7 @@ generateInstantiation moduleName auxData (SPAST.Instantiates meta inst mod args)
             Just AuxParameter{value=(Just _value)} -> _value
             _ -> value
     in
-        (generate inst) ++ ": " ++ mod ++ "(" ++ (intercalate ", " (map (\(name, arg) -> "\"" ++ (mapParamName name) ++ "\"=" ++ (mapParamValue name $ generate arg)) (zip params args))) ++ ");"
+        (generate inst) ++ ": " ++ (mod_name auxData mod) ++ "(" ++ (intercalate ", " (map (\(name, arg) -> "\"" ++ (mapParamName name) ++ "\"=" ++ (mapParamValue name $ generate arg)) (zip params args))) ++ ");"
 generateInstantiation _ _ _ _ = ""
 
 generateAssociatedComponents :: (SPAST.NodeDeclaration, SPAST.Definition) -> [String]
