@@ -81,7 +81,7 @@ instance PrologGenerator AST.Module where
     name = "add_" ++ AST.moduleName m
     mi = gen_module_info m
     p1 = gen_nat_param_list (AST.parameters m)
-    bodyChecks = ["is_list(Id)"]
+    bodyChecks = [predicate "is_list" ["Id"]] ++ map (\x -> predicate "nonvar" [x]) p1
 
     nodeDecls = concat $ map gen_node_decls (AST.nodeDecls m)
     instDecls = map gen_inst_decls (AST.instDecls m)
@@ -150,7 +150,11 @@ gen_node_decls x =
     -- Build the variable list
     pf = AST.nodeName x
     var_tup = tuple [local_nodeid_name pf, "INKIND_" ++ pf, "OUTKIND_" ++ pf]
-    in [var_tup ++ " = " ++ decl_tup, predicate "node_enum" [local_nodeid_name pf, "_"]]
+    in [
+        var_tup ++ " = " ++ decl_tup,
+        predicate "node_enum" [local_nodeid_name pf, "_"], --eager node enum 
+        predicate "nonvar" ["INKIND_" ++ pf],  -- remove singleton var warning
+        predicate "nonvar" ["OUTKIND_" ++ pf]]
 
 
 -- This transformation is probably better to be in an AST transform
