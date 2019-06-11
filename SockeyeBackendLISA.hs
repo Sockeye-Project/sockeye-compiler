@@ -153,21 +153,32 @@ mod_name (Just auxData) name = case find (\x -> (nameFrom x) == name) (moduleTra
                                     Nothing -> name
                                     Just x -> nameTo x
 
+-- param_name aux mod_name component_name param_name = new_param_name
+param_name :: Maybe AuxData -> String -> String -> String -> String 
+param_name Nothing _ _ name = name
+param_name (Just AuxData{parameters=params}) _mod _comp _name = 
+    case find (\AuxParameter{moduleName=__mod, name=__name, component=__comp} ->
+            (__mod == _mod) && (__name == _name) && __comp == _comp) params of
+            Just AuxParameter{translation=(Just translation)} -> translation
+            _ -> _name
+
+-- param_value aux mod_name component_name param_name param_value = new_param_value
+param_value :: Maybe AuxData -> String -> String -> String -> String -> String
+param_value Nothing _ _ _ value = value
+param_value (Just AuxData{parameters=params}) _mod _comp _name _value = 
+    case find (\AuxParameter{moduleName=__mod, name=__name, component=__comp} ->
+            (__mod == _mod) && (__name == _name) && __comp == _comp) params of
+            Just AuxParameter{value=(Just v)} -> v
+            _ -> _value
+
 generateInstantiation :: String -> Maybe AuxData -> SPAST.Definition -> [SPAST.Module] -> String
 generateInstantiation moduleName auxData (SPAST.Instantiates meta inst mod args) modules = let
     params = case find (((==) mod) . SPAST.moduleName) modules of
         Nothing -> error $ "Module parameters not found for " ++ mod ++ " : " ++ (show meta)
         Just x -> map SPAST.paramName (SPAST.parameters x)
-    mapParamName _name = case auxData of
-        Nothing -> _name
-        Just AuxData{parameters=params} -> case find (\AuxParameter{moduleName=modName, name=__name, component=cName} -> (modName == moduleName) && (_name == __name) && (SAST.refName inst) == cName) params of
-            Just AuxParameter{translation=(Just translation)} -> translation
-            _ -> _name
-    mapParamValue _name value = case auxData of
-        Nothing -> value
-        Just AuxData{parameters=params} -> case find (\AuxParameter{moduleName=modName, name=__name, component=cName} -> (modName == moduleName) && (_name == __name) && (SAST.refName inst) == cName) params of
-            Just AuxParameter{value=(Just _value)} -> _value
-            _ -> value
+    compName = (SAST.refName inst)
+    mapParamName n = param_name auxData moduleName compName  n
+    mapParamValue n v = param_value auxData moduleName compName n v
     in
         (generate inst) ++ ": " ++ (mod_name auxData mod) ++ "(" ++ (intercalate ", " (map (\(name, arg) -> "\"" ++ (mapParamName name) ++ "\"=" ++ (mapParamValue name $ generate arg)) (zip params args))) ++ ");"
 generateInstantiation _ _ _ _ = ""
