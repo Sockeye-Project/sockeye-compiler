@@ -25,7 +25,7 @@ import qualified SockeyeParserAST as SPAST
 data AuxData = AuxData
     { connections :: [AuxConnection]
     , parameters :: [AuxParameter]
-    , moduleTranslation :: [AuxModuleTranslation]
+    , moduleTranslation :: Maybe [AuxModuleTranslation]
     }
     deriving (Generic, Show)
 
@@ -148,10 +148,11 @@ instance LISAGenerator Composition where
 
 -- lookup the module name in aux data and return translated string
 mod_name :: Maybe AuxData -> String -> String
-mod_name Nothing name = name 
-mod_name (Just auxData) name = case find (\x -> (nameFrom x) == name) (moduleTranslation auxData)  of
-                                    Nothing -> name
-                                    Just x -> nameTo x
+mod_name (Just AuxData{moduleTranslation=Just trans}) name =
+    case find (\x -> (nameFrom x) == name) (trans)  of
+        Nothing -> name
+        Just x -> nameTo x
+mod_name _ name = name 
 
 -- param_name aux mod_name component_name param_name = new_param_name
 param_name :: Maybe AuxData -> String -> String -> String -> String 

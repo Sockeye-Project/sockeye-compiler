@@ -305,7 +305,7 @@ gen_base_address (AST.Address _ ws) = gen_single_ws $ ws !! 0
     gen_single_nr nr = case nr of
         AST.SingletonRange _ b -> generate b
         AST.LimitRange _ b _ -> generate b
-        AST.BitsRange _ b bits -> "BITSRANGE NYI"
+        AST.BitsRange _ b bits -> generate b 
 
 gen_translate :: [OneMapSpec] -> (Integer, [String]) -> (Integer, [String])
 gen_translate [] s = s
@@ -427,7 +427,12 @@ instance PrologGenerator AST.NaturalRange where
     AST.LimitRange _ b l -> predicate "block"
       [generate b, generate l]
     AST.BitsRange _ b bits -> "BITSRANGE NYI"
-      -- struct "block" [("base", generate b), ("limit", show 666)]
+    -- AST.BitsRange _ b bits -> 
+    --        -- TODO: This will totally fail if a module uses two of those
+    --        -- we need a way to get temporary variable names
+    --        "TMP_BASE is " ++ (generate b) ++ "," ++
+    --        "TMP_LIMIT is TMP_BASE + 2^(" ++ (generate bits) ++ ")-1," ++
+    --        (predicate "block" ["TMP_BASE", "TMP_LIMIT"])
 
 instance PrologGenerator AST.NaturalExpr where
   generate nr = case nr of
