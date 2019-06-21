@@ -25,12 +25,15 @@
     also merge the translte/convert types into one.
 -}
 
+{-# LANGUAGE ScopedTypeVariables #-}
+
 module SockeyeBackendProlog
 ( compile, compileDirect ) where
 
 import qualified Data.Map as Map
 import Data.Char
 import Data.List
+import Data.Maybe (catMaybes)
 import Text.Printf
 import Control.Exception (throw, Exception)
 import Control.Monad.State.Strict
@@ -80,8 +83,8 @@ get_state_var = do
 
 get_next_state_var :: ModLevelStateS String
 get_next_state_var = do
-    st <- get
     modify (\c -> c { stateCount = (stateCount c) + 1})
+    st <- get
     return $ statevar (stateCount st)
 
 {- add an extra predicate to be inserted at the module level -}
@@ -117,12 +120,6 @@ gen_nat_param_list :: [AST.ModuleParameter] -> [String]
 gen_nat_param_list = map local_param_name . map AST.paramName
 
 
-gen_body_def_maps :: ModuleInfo -> [AST.Definition] -> Integer -> [String]
-gen_body_def_maps m [] _ = []
-gen_body_def_maps m (xs:x) i = elms  ++ (gen_body_def_maps m x (ii))
-    where
-        (ii, elms) = (gen_body_defs m xs i)
-
 instance PrologGenerator AST.Module where
   generate m = do
     let name = "add_" ++ AST.moduleName m
@@ -131,14 +128,13 @@ instance PrologGenerator AST.Module where
     let bodyChecks = [predicate "is_list" ["Id"]] ++ map (\x -> predicate "nonvar" [x]) p1
 
     nodeDecls <- mapM generate (AST.nodeDecls m)
-    instDecls <- mapM gen_inst_decls (AST.instDecls m)
-
-    -- bodyDefs = concat $ map (gen_body_defs mi) (AST.definitions m)
-    -- let bodyDefs = gen_body_def_maps mi  (AST.definitions m) 0
-    let bodyDefs =  []
+    -- instDecls <- mapM generate (AST.instDecls m)
+    let instDecls = []
+    -- let nodeDecls = []
+    bodyDefs <- mapM generate (AST.definitions m)
     -- n =  sum $ map (count_num_facts mi) (AST.definitions m)
 
-    let body = intercalate ",\n    " $ bodyChecks ++ nodeDecls ++ instDecls ++ bodyDefs
+    let body = pred_join $ bodyChecks ++ nodeDecls ++ instDecls ++ bodyDefs
     cS <- get_state_var
     return $ name ++ stringify ([statevar 0, "Id"] ++ p1 ++ [cS]) ++ " :- \n    " ++ body ++ ".\n\n"
     where
@@ -172,8 +168,6 @@ instance PrologGenerator AST.PropertyExpr where
 --  * params
 --  * constants
 -- This will return the name of these variables
-local_nodeid_name :: String -> String
-local_nodeid_name x = "ID_" ++ x
 
 local_inst_name :: String -> String
 local_inst_name x = "ID_" ++ x
@@ -187,73 +181,95 @@ local_const_name x = "CONST_" ++ x
 -- Generates something a la:
 -- (ID_RAM) = (['ram', Id])
 instance PrologGenerator AST.InstanceDeclaration where
-    generate x =
-      do
-        let var = local_nodeid_name $ AST.instName x
-        let decl = list_prepend (doublequotes $ AST.instName x) ("Id")
-        return $ var ++ " = " ++ decl
+    generate x = return ""
+--      do
+--        let var = local_nodeid_name $ AST.instName x
+--        let decl = list_prepend (doublequotes $ AST.instName x) ("Id")
+--        return $ var ++ " = " ++ decl
 
 -- Generates something a la:
 -- (ID_RAM, INKIND_RAM, OUTKIND_RAM) = (['ram' | Id], memory, memory)
 instance PrologGenerator AST.NodeDeclaration where
     generate x = do
-        let var = local_nodeid_name $ AST.nodeName x
-        decl_kind_in <- generate (AST.originDomain (AST.nodeType x))
-        decl_kind_out <- generate (AST.targetDomain (AST.nodeType x))
-        let decl_id = list_prepend (doublequotes $ AST.nodeName x) ("Id")
-        let decl_tup = tuple [decl_id, decl_kind_in, decl_kind_out]
-
-        -- Build the variable list
-        let pf = AST.nodeName x
-        let var_tup = tuple [local_nodeid_name pf, "INKIND_" ++ pf, "OUTKIND_" ++ pf]
-        return $ intercalate ",\n" [
-            var_tup ++ " = " ++ decl_tup,
-            predicate "node_enum" [local_nodeid_name pf, "_"], --eager node enum 
-            predicate "nonvar" ["INKIND_" ++ pf],  -- remove singleton var warning
-            predicate "nonvar" ["OUTKIND_" ++ pf]]
-
-
--- This transformation is probably better to be in an AST transform
-data MyAddressBlock = MyAddressBlock {
-  domain :: !AST.Domain,
-  addresses     :: AST.Address,
-  properties    :: AST.PropertyExpr
-  }
-
-pack_address_block :: AST.AddressBlock -> MyAddressBlock
-pack_address_block ab = MyAddressBlock {
-  domain = AST.Memory,
-  addresses = SAST.addresses ab,
-  properties = SAST.properties ab
-}
-
-data OneMapSpec = OneMapSpec
-  {
-  srcNode :: AST.UnqualifiedRef,
-  srcAddr :: MyAddressBlock,
-  targetNode :: AST.NodeReference,
-  targetAddr :: MyAddressBlock
-  }
+        let nn = AST.nodeName x
+        let nn_ref = PlQualifiedRef 
+                { propName  = nn
+                , propIndex = Nothing
+                , instName  = Nothing
+                , instIndex = Nothing
+                }
+        nn_ref_s <- generate nn_ref
+        return $ predicate "node_enum" [nn_ref_s, "_"] --eager node enum 
+        
+-- instance PrologGenerator AST.NodeDeclaration where
+--     generate x = do
+--         let var = local_nodeid_name $ AST.nodeName x
+--         decl_kind_in <- generate (AST.originDomain (AST.nodeType x))
+--         decl_kind_out <- generate (AST.targetDomain (AST.nodeType x))
+--         let decl_id = list_prepend (doublequotes $ AST.nodeName x) ("Id")
+--         let decl_tup = tuple [decl_id, decl_kind_in, decl_kind_out]
+-- 
+--         -- Build the variable list
+--         let pf = AST.nodeName x
+--         let var_tup = tuple [local_nodeid_name pf, "INKIND_" ++ pf, "OUTKIND_" ++ pf]
+--         return $ pred_join [
+--             var_tup ++ " = " ++ decl_tup,
+--             predicate "node_enum" [local_nodeid_name pf, "_"], --eager node enum 
+--             predicate "nonvar" ["INKIND_" ++ pf],  -- remove singleton var warning
+--             predicate "nonvar" ["OUTKIND_" ++ pf]]
 
 
-map_spec_flatten :: ModuleInfo -> AST.Definition -> [OneMapSpec]
-map_spec_flatten mi def = case def of
-  (AST.Maps _ n maps) ->
-    [OneMapSpec n (src_ab n $ AST.mapAddr map_spec) (AST.targetNode map_target) (dest_ab n $ AST.targetAddr map_target)
-      | map_spec <- maps, map_target <- (AST.mapTargets map_spec)]
-  _ -> []
-  where
-    nt uqr = (node_type mi) Map.! (AST.refName uqr)
-    src_ab uqr ab = MyAddressBlock {
-      domain = ST.originDomain $ nt uqr,
-      properties = SAST.properties ab,
-      addresses = SAST.addresses ab
+{- Intermediate Prolog Representation -}
+data PlAddressBlock = PlAddressBlock AST.Address
+
+data PlQualifiedRef = PlQualifiedRef
+    { propName  :: String
+    , propIndex :: Maybe AST.ArrayIndex
+    , instName  :: Maybe String
+    , instIndex :: Maybe AST.ArrayIndex
     }
-    dest_ab uqr ab = MyAddressBlock {
-      domain = ST.targetDomain $ nt uqr,
-      addresses = SAST.addresses ab,
-      properties = SAST.properties ab
+
+qualify_ref :: AST.UnqualifiedRef -> AST.UnqualifiedRef -> PlQualifiedRef
+qualify_ref inst prop = PlQualifiedRef
+    { propName  = AST.refName prop
+    , propIndex = AST.refIndex prop
+    , instName  = Just $ AST.refName inst
+    , instIndex = AST.refIndex inst
     }
+
+qualify_self :: AST.UnqualifiedRef -> PlQualifiedRef
+qualify_self prop = PlQualifiedRef
+    { propName  = AST.refName prop
+    , propIndex = AST.refIndex prop
+    , instName  = Nothing
+    , instIndex = Nothing
+    }
+
+qualify_nr :: AST.NodeReference -> PlQualifiedRef
+qualify_nr (AST.InternalNodeRef _ nr) = qualify_self nr
+qualify_nr (AST.InputPortRef _ inst node) = qualify_ref inst node
+
+data PlNameSpec = PlNameSpec
+    { node :: AST.NodeReference
+    , addr :: Maybe AST.NaturalExpr -- Nothing if we state something the backend doesnt support
+    , prop :: AST.PropertyExpr
+    }
+
+data PlPortBindSpec = PlPortBindSpec
+    { port :: PlQualifiedRef 
+    , boundNode    :: AST.NodeReference
+    }
+
+data PlRegionSpec = PlRegionSpec
+  { regNode :: AST.UnqualifiedRef
+  , regBlock :: PlAddressBlock 
+  , regProp :: AST.PropertyExpr
+  }
+data PlTranslateSpec = PlTranslateSpec
+  { src :: PlRegionSpec,
+    dst :: PlNameSpec
+  }
+data PlAcceptSpec = PlAcceptSpec PlRegionSpec
 
 data ModuleInfo = ModuleInfo
   {
@@ -268,9 +284,9 @@ gen_module_info x =
     node_type = Map.fromList [(AST.nodeName z, AST.nodeType $ z) | z <- AST.nodeDecls x]
   }
   where
-    insts = [local_inst_name $ AST.instName d | d <- AST.instDecls x]
+    insts = [AST.instName d | d <- AST.instDecls x]
     mparams = (gen_nat_param_list $ AST.parameters x)
-    nodes = [local_nodeid_name $ AST.nodeName d | d <- AST.nodeDecls x]
+    nodes = [AST.nodeName d | d <- AST.nodeDecls x]
 
 add_param :: ModuleInfo -> String -> ModuleInfo
 add_param mi s = ModuleInfo { params = (params mi) ++ [s], node_type = node_type mi}
@@ -324,16 +340,7 @@ forall_uqr mi ref body_str = case (AST.refIndex ref) of
     it_list = "IDL_" ++ (AST.refName ref)
 -}
 
-
-
-gen_bind_defs :: String -> [AST.PortBinding] -> (Integer, [String]) -> (Integer, [String])
-gen_bind_defs uql_var [] s = s
-gen_bind_defs uql_var (x:xs) (i, s) = gen_bind_defs uql_var xs (i + 1, s ++ [ovl])
-    where
-        ovl = state_add_overlay i src dest
-        dest =  generate $ AST.boundNode x
-        src = list_prepend (doublequotes $ AST.refName $ AST.boundPort $ x) uql_var
-
+{-
 gen_index :: AST.UnqualifiedRef -> String
 gen_index uqr =
   case (AST.refIndex uqr) of
@@ -347,149 +354,253 @@ gen_index uqr =
     gen_ns_simple (ST.SingletonRange _ base) = gen_exp_simple base
     gen_exp_simple (AST.Variable _ vn) = "IDT_" ++ vn
     gen_exp_simple (AST.Literal _ int) = show int
+-}
 
 
-gen_accept :: AST.UnqualifiedRef -> [AST.AddressBlock] -> (Integer, [String]) -> (Integer, [String])
-gen_accept _ [] s = s
-gen_accept n (xs:x) (i, s) = gen_accept n x (i + 1, s ++ [acc])
-    where
-        acc = state_add_accept i (predicate "region" [generate n, generate pab, generate $ properties pab ])
-        pab = pack_address_block xs
+-- gen_base_address :: AST.Address -> String
+-- gen_base_address (AST.Address _ ws) = gen_single_ws $ ws !! 0
+--   where
+--     gen_single_ws (AST.ExplicitSet _ ns) = gen_single_ns ns
+--     gen_single_ws (AST.Wildcard _)  = "0 /* WILDCARD_NYI */"
+--     gen_single_ns (AST.NaturalSet _ nr) = gen_single_nr (nr !! 0)
+--     gen_single_nr nr = case nr of
+--         AST.SingletonRange _ b -> generate b
+--         AST.LimitRange _ b _ -> generate b
+--         AST.BitsRange _ b bits -> generate b 
 
-gen_base_address :: AST.Address -> String
-gen_base_address (AST.Address _ ws) = gen_single_ws $ ws !! 0
-  where
-    gen_single_ws (AST.ExplicitSet _ ns) = gen_single_ns ns
-    gen_single_ws (AST.Wildcard _)  = "0 /* WILDCARD_NYI */"
-    gen_single_ns (AST.NaturalSet _ nr) = gen_single_nr (nr !! 0)
-    gen_single_nr nr = case nr of
-        AST.SingletonRange _ b -> generate b
-        AST.LimitRange _ b _ -> generate b
-        AST.BitsRange _ b bits -> generate b 
 
-gen_translate :: [OneMapSpec] -> (Integer, [String]) -> (Integer, [String])
-gen_translate [] s = s
-gen_translate (om:x) (i, s) = gen_translate x (i + 1, s ++ [trs])
-    where
-        trs = state_add_mapping i (gen_region (srcNode om) (srcAddr om)) (gen_name (targetNode om) (targetAddr om))
-        gen_region nodeid x = predicate "region" [generate nodeid, generate x, generate $ properties x]
-        gen_name nodeid x = predicate "name" [generate nodeid, gen_base_address $ addresses x, generate $ properties x]
+instance PrologGenerator PlAddressBlock where
+    generate (PlAddressBlock ab) = generate ab
+         -- addrStr <- generate ab
+         -- return $ predicate "block" [addrStr]
 
-gen_blockoverlay :: String -> String -> [Integer] -> (Integer, [String]) -> (Integer, [String])
-gen_blockoverlay src dst [] s = s
-gen_blockoverlay src dst (om:x) (i, s) = gen_blockoverlay src dst  x (i + 1, s ++ [trs])
-    where
-        trs = state_add_block_meta i src (show om) dst
+instance PrologGenerator PlRegionSpec where
+    generate as = do
+        nodeStr <- generate (regNode as)
+        blockStr <- generate (regBlock as)
+        propStr <- generate (regProp as)
+        return $ predicate "region" [nodeStr, blockStr, propStr]
 
-gen_body_defs :: ModuleInfo -> AST.Definition -> Integer -> (Integer, [String])
+instance PrologGenerator PlNameSpec where
+    generate ns =
+        let
+            gen_addr (Just x) = generate x
+            gen_addr Nothing = return $ "0 /* NYI */"
+        in
+            do
+                nodeStr <- generate (node ns)
+                addrStr <- gen_addr (addr ns)
+                propStr <- generate (prop ns)
+                return $ predicate "name" [nodeStr, addrStr, propStr]
+
+instance PrologGenerator PlTranslateSpec where
+    generate ts = do
+        srcStr <- generate (src ts)
+        dstStr <- generate (dst ts)
+        ass <- assert_translate srcStr dstStr
+        return ass
+
+instance PrologGenerator PlAcceptSpec where
+    generate (PlAcceptSpec reg) = do
+        regStr <- generate reg
+        ass <- assert_accept regStr
+        return ass
+
+instance PrologGenerator PlPortBindSpec where
+    generate pb =
+        do
+            portS <- generate $ port pb
+            ndS <- generate $ boundNode pb
+            olS <- assert_overlay portS ndS
+            return olS
+
+
+        
+
 instance PrologGenerator AST.Definition where
-    generate x = do
+    generate (AST.Accepts _ n accepts) = do
+        let pl_accepts = map (mk_acc n) accepts
+        accS <- mapM generate pl_accepts
+        return $ pred_join accS
+        where
+            mk_acc :: AST.UnqualifiedRef -> AST.AddressBlock -> PlAcceptSpec
+            mk_acc n ab = 
+                let
+                    block = PlAddressBlock $ SAST.addresses ab
+                    reg = PlRegionSpec { regNode=n
+                                       , regBlock=block
+                                       , regProp=SAST.properties ab }
+                in
+                    PlAcceptSpec reg
 
-gen_body_defs mi x i = case x of
-  (AST.Accepts _ n accepts) -> do
-                        nStr <- generate n
-  (AST.Maps _ _ _) -> gen_translate (map_spec_flatten mi x) (i, [])
-   --(1, [(assert 0 $ predicate "translate"
-    --[generate $ srcNode om, generate $ srcAddr om, generate $ targetNode om, generate $ targetAddr om])
-    -- | om <- map_spec_flatten mi x])
-  (AST.Overlays _ src dest) -> (i+1, [state_add_overlay i (generate src) (generate dest)])
-  (AST.BlockOverlays _ src dst bits) -> gen_blockoverlay (generate src) (generate dst) bits (i, [])
-  -- (AST.Instantiates _ i im args) -> [forall_uqr mi i (predicate ("add_" ++ im) ["IDT_" ++ (AST.refName i)])]
-  (AST.Instantiates _ ii im args) -> (i+1, [ predicate ("add_" ++ im)
-        ([statevar i] ++ [gen_index ii] ++ (map generate args) ++ [statevar (i+1)]) ])
-  -- (AST.Binds _ i binds) -> [forall_uqr mi i $ gen_bind_defs ("IDT_" ++ (AST.refName i)) binds]
-  (AST.Binds _ ii binds) -> gen_bind_defs (gen_index ii) binds (i, [])
-  --(AST.Forall _ varName varRange body) -> (0, [forall_qual mi varName varRange body])
-  (AST.Forall _ varName varRange body) -> throw $ NYIException "forall"
-  (AST.Converts _ _ _ ) -> throw $ NYIException "Converts"
-  where
-    new_ab ab = pack_address_block ab
+    generate (AST.Maps _ nd maps) = do
+        let pl_trans = concat $ map (mk_trans nd) maps
+        pl_trans_s <- mapM generate pl_trans
+        return $ pred_join pl_trans_s
+        where 
+            mk_trans :: AST.UnqualifiedRef -> AST.MapSpec -> [PlTranslateSpec]
+            mk_trans n mapspec = 
+                let
+                    ab = AST.mapAddr mapspec
+                    block = PlAddressBlock $ SAST.addresses ab
+                    src = PlRegionSpec { regNode=n
+                                       , regBlock=block
+                                       , regProp=SAST.properties ab }
+                    targets = AST.mapTargets mapspec
+                in 
+                    map (\x -> PlTranslateSpec {src=src, dst=mk_name x}) targets
 
-count_num_facts :: ModuleInfo -> AST.Definition -> Integer
-count_num_facts mi x = case x of
-    (AST.Accepts _ n accepts) -> sum([1 | acc <- accepts])
-    (AST.Maps _ _ _) -> sum([1 | om <- map_spec_flatten mi x])
-    (AST.Overlays _ src dest) -> 1
-    -- (AST.Instantiates _ i im args) -> [forall_uqr mi i (predicate ("add_" ++ im) ["IDT_" ++ (AST.refName i)])]
-    (AST.Instantiates _ _ _ _) -> 1
-    (AST.BlockOverlays _ _ _ bits) -> (toInteger (length bits))
-    -- (AST.Binds _ i binds) -> [forall_uqr mi i $ gen_bind_defs ("IDT_" ++ (AST.refName i)) binds]
-    (AST.Binds _ i binds) -> sum([1 | b <- binds])
-    (AST.Forall _ varName varRange body) -> 0
-    (AST.Converts _ _ _ ) -> 0
+            mk_name :: AST.MapTarget -> PlNameSpec
+            mk_name t = 
+                let
+                    ab = AST.targetAddr t
+                    get_ws (SAST.Address _ [ws]) = Just ws
+                    get_ws (SAST.Address _ _) = Nothing
+                    get_ns (SAST.ExplicitSet _ ns) = Just ns
+                    get_ns (SAST.Wildcard _) = Nothing
+                    get_fst (SAST.NaturalSet _ [nr]) = Just nr
+                    get_fst (SAST.NaturalSet _ _) = Nothing
+                    get_base (AST.SingletonRange _ b) = Just b
+                    get_base (AST.LimitRange _ b _) = Just b
+                    get_base (_) = Nothing
+                    add = (get_base <=< get_fst <=< get_ns <=< get_ws) (SAST.addresses ab)
+                in
+                    PlNameSpec { node=AST.targetNode t
+                               , addr=add
+                               , prop=SAST.properties ab }
+
+    generate (AST.BlockOverlays _ src dst bits) = do
+        srcS <- generate src
+        dstS <- generate dst
+        let bitsS = show (bits !! 0)
+        res <- assert_configurable srcS bitsS dstS 
+        return res
+
+    generate (AST.Instantiates _ idname imodname args) = do
+        argsS <- mapM generate args
+        idnameS <- generate idname
+        res <- add_mod idnameS imodname argsS
+        return res
+
+    generate (AST.Binds _ inst binds) = do
+        let pl_binds = map mk_bind binds 
+        bindsS <- mapM generate pl_binds
+        return $ pred_join bindsS
+        where 
+            mk_bind bind = PlPortBindSpec
+                { port = qualify_ref inst (AST.boundPort bind)
+                , boundNode = AST.boundNode bind }
+
+    generate (AST.Overlays _ src dst) = do
+        srcS <- generate $ qualify_self src
+        dstS <- generate $ qualify_nr dst
+        olS <- assert_overlay srcS dstS
+        return olS
+
+    generate x = throw $ NYIException $ "generate for NYI for " ++ (show x)
+-- gen_body_defs mi x i = case x of
+--   (AST.Accepts _ n accepts) -> do
+-- 
+--   (AST.Maps _ _ _) -> gen_translate (map_spec_flatten mi x) (i, [])
+--    --(1, [(assert 0 $ predicate "translate"
+--     --[generate $ srcNode om, generate $ srcAddr om, generate $ targetNode om, generate $ targetAddr om])
+--     -- | om <- map_spec_flatten mi x])
+--   (AST.Overlays _ src dest) -> (i+1, [state_add_overlay i (generate src) (generate dest)])
+--   (AST.BlockOverlays _ src dst bits) -> gen_blockoverlay (generate src) (generate dst) bits (i, [])
+--   -- (AST.Instantiates _ i im args) -> [forall_uqr mi i (predicate ("add_" ++ im) ["IDT_" ++ (AST.refName i)])]
+--   (AST.Instantiates _ ii im args) -> (i+1, [ predicate ("add_" ++ im)
+--         ([statevar i] ++ [gen_index ii] ++ (map generate args) ++ [statevar (i+1)]) ])
+--   -- (AST.Binds _ i binds) -> [forall_uqr mi i $ gen_bind_defs ("IDT_" ++ (AST.refName i)) binds]
+--   (AST.Binds _ ii binds) -> gen_bind_defs (gen_index ii) binds (i, [])
+--   --(AST.Forall _ varName varRange body) -> (0, [forall_qual mi varName varRange body])
+--   (AST.Forall _ varName varRange body) -> throw $ NYIException "forall"
+--   (AST.Converts _ _ _ ) -> throw $ NYIException "Converts"
+--   where
+--     new_ab ab = pack_address_block ab
+
+
+
+-- count_num_facts :: ModuleInfo -> AST.Definition -> Integer
+-- count_num_facts mi x = case x of
+--     (AST.Accepts _ n accepts) -> sum([1 | acc <- accepts])
+--     (AST.Maps _ _ _) -> sum([1 | om <- map_spec_flatten mi x])
+--     (AST.Overlays _ src dest) -> 1
+--     -- (AST.Instantiates _ i im args) -> [forall_uqr mi i (predicate ("add_" ++ im) ["IDT_" ++ (AST.refName i)])]
+--     (AST.Instantiates _ _ _ _) -> 1
+--     (AST.BlockOverlays _ _ _ bits) -> (toInteger (length bits))
+--     -- (AST.Binds _ i binds) -> [forall_uqr mi i $ gen_bind_defs ("IDT_" ++ (AST.refName i)) binds]
+--     (AST.Binds _ i binds) -> sum([1 | b <- binds])
+--     (AST.Forall _ varName varRange body) -> 0
+--     (AST.Converts _ _ _ ) -> 0
 
 
 
 instance PrologGenerator AST.UnqualifiedRef where
-  generate uq = case (AST.refIndex uq) of
-    Nothing -> local_nodeid_name $ AST.refName uq
-    Just ai -> list_prepend (generate ai) (local_nodeid_name $ AST.refName uq)
+  generate uqr = generate $ qualify_self uqr
+
+instance PrologGenerator PlQualifiedRef where
+    generate qr =
+        let
+            gen_idx Nothing = return Nothing
+            gen_idx (Just x) = do
+                xS <- generate x
+                return $ Just xS
+        in do
+            propIndexMS <- gen_idx $ propIndex qr
+            let propNameMS = Just $ propName qr
+            let instNameMS = instName qr
+            instIndexMS <- gen_idx $ instIndex qr
+            let els = catMaybes [
+                            propIndexMS,
+                            propNameMS >>= (Just . doublequotes),
+                            instIndexMS,
+                            instNameMS >>= (Just . doublequotes)]
+            return $ many_list_prepend els "Id"
 
 instance PrologGenerator AST.WildcardSet where
-  generate a = case a of
-    AST.ExplicitSet _ ns -> generate ns
-    AST.Wildcard _ -> "NYI!?"
+    generate (AST.ExplicitSet _ ns) = generate ns
+    generate (AST.Wildcard _) = return "block(0,0) /* WILDCARD NYI */"
 
 instance PrologGenerator AST.ArrayIndex where
-  generate (AST.ArrayIndex _ wcs) = brackets $ intercalate "," [generate x | x <- wcs]
-
-instance PrologGenerator AST.MapSpec where
-  generate ms = struct "map" [("src_block", generate (AST.mapAddr ms)),
-    ("dests", list $ map generate (AST.mapTargets ms))]
-
-instance PrologGenerator AST.MapTarget where
-  generate mt = struct "dest" [("id", generate (AST.targetNode mt)),
-    ("base", generate (AST.targetAddr mt))]
+    generate (AST.ArrayIndex _ wcs) = do
+        wcsS <- mapM generate wcs
+        return $ brackets $ intercalate "," wcsS
 
 instance PrologGenerator AST.NodeReference where
-  generate nr = case nr of
-    AST.InternalNodeRef _ nn -> gen_index nn
-    AST.InputPortRef _ inst node -> list_prepend (doublequotes $ AST.refName node) (gen_index inst)
-
-instance PrologGenerator MyAddressBlock where
-  -- We have to generate something like this, probably involves an extra step in the AST.
-  -- pred_99(propspec) :- member(prop1, propspec), member(prop2, propspec
-  -- node_accept( ..., block{propspec: pred_99}).
-  -- to check: B = block{propspec: PS}, call(PS, current_properties)
-  generate ab = blocks !! 0
-    where
-      blocks = gen_a $ addresses ab
-      gen_a (AST.Address _ ws) = map gen_ws ws
-      gen_ws (AST.ExplicitSet _ ns) = generate ns
-      gen_ws (AST.Wildcard _ ) = "block(0,0) /* WILDCARD NYI */"
+    generate (AST.InternalNodeRef _ nn) = generate $ qualify_self nn
+    generate (AST.InputPortRef _ inst node) = generate $ qualify_ref inst node 
 
 instance PrologGenerator AST.Domain where
-  generate d = case d of
-    AST.Memory -> atom "memory"
-    AST.Interrupt -> atom "interrupt"
-    AST.Power -> atom "power"
-    AST.Clock -> atom "clock"
+  generate (AST.Memory) = return $ atom "memory"
+  generate (AST.Interrupt) = return $ atom "interrupt"
+  generate (AST.Power) = return $ atom "power"
+  generate (AST.Clock) = return $ atom "clock"
 
 instance PrologGenerator AST.AddressBlock where
-  -- TODO: add properties
-  -- We have to generate something like this, probably involves an extra step in the AST.
-  -- pred_99(propspec) :- member(prop1, propspec), member(prop2, propspec
-  -- node_accept( ..., block{propspec: pred_99}).
-  -- to check: B = block{propspec: PS}, call(PS, current_properties)
   generate ab = generate $ SAST.addresses ab
 
 
 instance PrologGenerator AST.Address where
-  generate a = case a of
-    AST.Address _ ws -> tuple $ map generate ws
+    generate (AST.Address _ ws) = do
+        wsStr <- mapM generate ws
+        return $ wsStr !! 0
 
 instance PrologGenerator AST.NaturalSet where
   generate a = case a of
      AST.NaturalSet _ [nrs] -> generate nrs
-     AST.NaturalSet _ _ -> "NO MULTIDIM"
+     AST.NaturalSet _ _ -> throw $ NYIException $ "MULTIDIM"
+
 
 instance PrologGenerator AST.NaturalRange where
   generate nr = case nr of
-    AST.SingletonRange _ b -> predicate "block"
-      [generate b, generate b]
-    AST.LimitRange _ b l -> predicate "block"
-      [generate b, generate l]
-    AST.BitsRange _ b bits -> "BITSRANGE NYI"
+    AST.SingletonRange _ b -> do
+        bS <- generate b
+        return $ predicate "block" [bS,bS]
+    AST.LimitRange _ b l -> do
+        bS <- generate b
+        lS <- generate l
+        return $ predicate "block" [bS,lS]
+    AST.BitsRange _ b bits -> return $ "BITSRANGE NYI"
     -- AST.BitsRange _ b bits -> 
     --        -- TODO: This will totally fail if a module uses two of those
     --        -- we need a way to get temporary variable names
@@ -498,16 +609,30 @@ instance PrologGenerator AST.NaturalRange where
     --        (predicate "block" ["TMP_BASE", "TMP_LIMIT"])
 
 instance PrologGenerator AST.NaturalExpr where
-  generate nr = case nr of
-    SAST.Constant _ v -> local_const_name v
-    SAST.Variable _ v -> "IDT_" ++ v
-    SAST.Parameter _ v -> local_param_name v
-    SAST.Literal _ n -> show n
-    SAST.Addition _ a b -> "(" ++ generate a ++ ")+(" ++ generate b ++ ")"
-    SAST.Subtraction _ a b -> "(" ++ generate a ++ ")-(" ++ generate b ++ ")"
-    SAST.Multiplication _ a b -> "(" ++ generate a ++ ")*(" ++ generate b ++ ")"
-    SAST.Slice _ a bitrange -> "SLICE NYI"
-    SAST.Concat _ a b -> "CONCAT NYI"
+    -- TODO insert monad magic here
+    generate (SAST.Addition _ a b) = do
+        aS <- generate a
+        bS <- generate b
+        return $ "(" ++ aS ++ ")+(" ++ bS ++ ")"
+    generate (SAST.Subtraction _ a b) = do
+        aS <- generate a
+        bS <- generate b
+        return $ "(" ++ aS ++ ")-(" ++ bS ++ ")"
+    generate (SAST.Multiplication _ a b) = do
+        aS <- generate a
+        bS <- generate b
+        return $ "(" ++ aS ++ ")*(" ++ bS ++ ")"
+    -- and the terminals
+    generate x = return $ gen x 
+        where
+            gen :: AST.NaturalExpr -> String
+            gen (SAST.Constant _ v) = local_const_name v
+            gen (SAST.Variable _ v) = "IDT_" ++ v
+            gen (SAST.Parameter _ v) = local_param_name v
+            gen (SAST.Literal _ n) = show n
+            gen (SAST.Slice _ a bitrange) = "SLICE NYI"
+            gen (SAST.Concat _ a b) = "CONCAT NYI"
+
 
 
 {- Helper functions -}
@@ -536,6 +661,13 @@ list elems = brackets $ intercalate "," elems
 list_prepend :: String -> String -> String
 list_prepend a li = brackets $ a ++ " | " ++ li
 
+many_list_prepend :: [String] -> String -> String
+many_list_prepend as li = 
+    let
+        asS = intercalate "," as 
+    in
+        brackets $ asS ++ " | " ++ li
+
 enclose :: String -> String -> String -> String
 enclose start end string = start ++ string ++ end
 
@@ -555,52 +687,70 @@ doublequotes :: String -> String
 doublequotes = enclose "\"" "\""
 
 
-nat_range_from :: AST.NaturalRange -> String
-nat_range_from nr = case nr of
-  AST.SingletonRange _ b -> generate b
-  AST.LimitRange _ b _ -> generate b
-  AST.BitsRange _ _ _ -> "BitsRange NOT IMPLEMENTED"
-
-nat_range_to :: AST.NaturalRange -> String
-nat_range_to nr = case nr of
-  AST.SingletonRange _ b -> generate b
-  AST.LimitRange _ _ l -> generate l
-  AST.BitsRange _ _ _ -> "BitsRange NOT IMPLEMENTED"
-
--- Params are variables passed into the for body
-for_body_inner :: [String] -> String -> String -> (Int, AST.NaturalRange)  -> String
-for_body_inner params itvar body itrange  =
-  let
-    itvar_local = itvar ++ (show $ fst itrange)
-    from = nat_range_from $ (snd itrange)
-    to = nat_range_to $ (snd itrange)
-    for = printf "for(%s,%s,%s)" itvar_local from to :: String
-    paramf x  = printf "param(%s)" x :: String
-    header = intercalate "," ([for] ++ map paramf params)
-    in printf "(%s \ndo\n %s \n)" header body
-
-enumerate = zip [0..]
-
-for_body :: [String] -> String -> AST.NaturalSet -> String -> String
-for_body params itvar (AST.NaturalSet _ ranges) body =
-  foldl fbi body (enumerate ranges)
-  where
-    fbi = for_body_inner params itvar
+-- nat_range_from :: AST.NaturalRange -> String
+-- nat_range_from nr = case nr of
+--   AST.SingletonRange _ b -> generate b
+--   AST.LimitRange _ b _ -> generate b
+--   AST.BitsRange _ _ _ -> "BitsRange NOT IMPLEMENTED"
+-- 
+-- nat_range_to :: AST.NaturalRange -> String
+-- nat_range_to nr = case nr of
+--   AST.SingletonRange _ b -> generate b
+--   AST.LimitRange _ _ l -> generate l
+--   AST.BitsRange _ _ _ -> "BitsRange NOT IMPLEMENTED"
+-- 
+-- -- Params are variables passed into the for body
+-- for_body_inner :: [String] -> String -> String -> (Int, AST.NaturalRange)  -> String
+-- for_body_inner params itvar body itrange  =
+--   let
+--     itvar_local = itvar ++ (show $ fst itrange)
+--     from = nat_range_from $ (snd itrange)
+--     to = nat_range_to $ (snd itrange)
+--     for = printf "for(%s,%s,%s)" itvar_local from to :: String
+--     paramf x  = printf "param(%s)" x :: String
+--     header = intercalate "," ([for] ++ map paramf params)
+--     in printf "(%s \ndo\n %s \n)" header body
+-- 
+-- enumerate = zip [0..]
+-- 
+-- for_body :: [String] -> String -> AST.NaturalSet -> String -> String
+-- for_body params itvar (AST.NaturalSet _ ranges) body =
+--   foldl fbi body (enumerate ranges)
+--   where
+--     fbi = for_body_inner params itvar
+--
+pred_join :: [String] -> String 
+pred_join = intercalate ",\n    "
 
 statevar :: Int -> String
 statevar i = printf "S%i" i
 
+add_mod ::  String -> String -> [String] -> ModLevelStateS String
+add_mod idname modname args = do
+    sIn <- get_state_var
+    sOut <- get_next_state_var
+    return $ predicate ("add_" ++ modname) ([sIn, idname] ++ args ++ [sOut])
+
 assert_translate ::  String -> String -> ModLevelStateS String
-assert_translate src dst = "assert_translate" ++ parens ((statevar i) ++ ", " ++  src ++ ", " ++ dst ++ ", " ++ (statevar (i + 1)))
+assert_translate src dst = do
+    sIn <- get_state_var
+    sOut <- get_next_state_var
+    return $ predicate "assert_translate" [sIn, src, dst, sOut]
 
 assert_accept ::  String -> ModLevelStateS String
 assert_accept reg = do
     sIn <- get_state_var
     sOut <- get_next_state_var
-    return $ "assert_accept" ++ parens (sIn ++ ", " ++  reg ++ ", " ++ sOut)
+    return $ predicate "assert_accept" [sIn, reg, sOut]
 
-state_add_overlay ::  Integer -> String -> String -> String
-state_add_overlay i src dst = "assert_overlay" ++ parens ((statevar i) ++ ", " ++  src ++ ", " ++ dst ++ ", " ++ (statevar (i + 1)))
+assert_overlay ::  String -> String -> ModLevelStateS String
+assert_overlay src dst = do
+    sIn <- get_state_var
+    sOut <- get_next_state_var
+    return $ predicate "assert_overlay" [sIn, src, dst, sOut]
 
-state_add_block_meta ::  Integer -> String -> String -> String -> String
-state_add_block_meta i src bits dst = "assert_configurable" ++ parens ((statevar i) ++ ", " ++  src ++ ", " ++ bits ++ ", " ++ dst ++ ", " ++ (statevar (i + 1)))
+assert_configurable ::   String -> String -> String -> ModLevelStateS String
+assert_configurable src bits dst = do
+    sIn <- get_state_var
+    sOut <- get_next_state_var
+    return $ predicate "assert_configurable" [sIn, src, bits, dst, sOut]
