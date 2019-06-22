@@ -91,8 +91,13 @@ get_next_state_var = do
 push_extra_pred :: String -> ModLevelStateS ()
 push_extra_pred pred = do
     st <- get
-    modify (\c -> c { extraPred = (pred : (extraPred c))})
+    modify (\c -> c { extraPred = (extraPred c) ++ [pred]})
     return ()
+
+get_extra_pred :: ModLevelStateS [String]
+get_extra_pred = do 
+    st <- get
+    return $ extraPred st
 
 
 {- Code Generator, first part, outside the module context -}
@@ -127,19 +132,25 @@ instance PrologGenerator AST.Module where
     let p1 = gen_nat_param_list (AST.parameters m)
     let bodyChecks = [predicate "is_list" ["Id"]] ++ map (\x -> predicate "nonvar" [x]) p1
 
+    consts <- mapM generate (AST.constants m)
     nodeDecls <- mapM generate (AST.nodeDecls m)
-    -- instDecls <- mapM generate (AST.instDecls m)
     let instDecls = []
-    -- let nodeDecls = []
     bodyDefs <- mapM generate (AST.definitions m)
-    -- n =  sum $ map (count_num_facts mi) (AST.definitions m)
-
-    let body = pred_join $ bodyChecks ++ nodeDecls ++ instDecls ++ bodyDefs
+    -- Collect the accumulated extra pred. Must be inserted before the body defs
+    extPred <- get_extra_pred
+    let body = pred_join $ bodyChecks ++ consts ++ nodeDecls ++ instDecls ++ extPred ++ bodyDefs
     cS <- get_state_var
     return $ name ++ stringify ([statevar 0, "Id"] ++ p1 ++ [cS]) ++ " :- \n    " ++ body ++ ".\n\n"
     where
       stringify [] = ""
       stringify pp = parens $ intercalate "," pp
+
+instance PrologGenerator AST.NamedConstant where
+    generate nc = let
+            l = local_param_name $ AST.constName nc
+            r = show $ AST.namedConst nc
+        in
+            return $ l ++ " = " ++ r
 
 
 instance PrologGenerator AST.PropertyExpr where
@@ -590,7 +601,6 @@ instance PrologGenerator AST.NaturalSet where
      AST.NaturalSet _ [nrs] -> generate nrs
      AST.NaturalSet _ _ -> throw $ NYIException $ "MULTIDIM"
 
-
 instance PrologGenerator AST.NaturalRange where
   generate nr = case nr of
     AST.SingletonRange _ b -> do
@@ -600,34 +610,40 @@ instance PrologGenerator AST.NaturalRange where
         bS <- generate b
         lS <- generate l
         return $ predicate "block" [bS,lS]
-    AST.BitsRange _ b bits -> return $ "BITSRANGE NYI"
-    -- AST.BitsRange _ b bits -> 
-    --        -- TODO: This will totally fail if a module uses two of those
-    --        -- we need a way to get temporary variable names
-    --        "TMP_BASE is " ++ (generate b) ++ "," ++
-    --        "TMP_LIMIT is TMP_BASE + 2^(" ++ (generate bits) ++ ")-1," ++
-    --        (predicate "block" ["TMP_BASE", "TMP_LIMIT"])
+    AST.BitsRange _ b bits -> do
+        bS <- generate b
+        bitS <- generate bits
+        limitVar <- get_next_tmp_var
+        push_extra_pred $ limitVar ++ " is " ++ bS ++ " + 2^" ++ bitS ++ " - 1"
+        return $ predicate "block" [bS,limitVar]
 
 instance PrologGenerator AST.NaturalExpr where
     -- TODO insert monad magic here
-    generate (SAST.Addition _ a b) = do
-        aS <- generate a
-        bS <- generate b
-        return $ "(" ++ aS ++ ")+(" ++ bS ++ ")"
-    generate (SAST.Subtraction _ a b) = do
-        aS <- generate a
-        bS <- generate b
-        return $ "(" ++ aS ++ ")-(" ++ bS ++ ")"
-    generate (SAST.Multiplication _ a b) = do
-        aS <- generate a
-        bS <- generate b
-        return $ "(" ++ aS ++ ")*(" ++ bS ++ ")"
-    -- and the terminals
-    generate x = return $ gen x 
+    generate exp = do
+        tmpV <- get_next_tmp_var 
+        expS <- genm exp
+        push_extra_pred $ tmpV ++ " is " ++ expS
+        return tmpV
         where
+            genm :: AST.NaturalExpr -> ModLevelStateS String
+            genm (SAST.Addition _ a b) = do
+                aS <- genm a
+                bS <- genm b
+                return $ "(" ++ aS ++ ")+(" ++ bS ++ ")"
+            genm (SAST.Subtraction _ a b) = do
+                aS <- genm a
+                bS <- genm b
+                return $ "(" ++ aS ++ ")-(" ++ bS ++ ")"
+            genm (SAST.Multiplication _ a b) = do
+                aS <- genm a
+                bS <- genm b
+                return $ "(" ++ aS ++ ")*(" ++ bS ++ ")"
+            -- and the terminals
+            genm x = return $ gen x 
+
             gen :: AST.NaturalExpr -> String
             gen (SAST.Constant _ v) = local_const_name v
-            gen (SAST.Variable _ v) = "IDT_" ++ v
+            gen (SAST.Variable _ v) = local_param_name v
             gen (SAST.Parameter _ v) = local_param_name v
             gen (SAST.Literal _ n) = show n
             gen (SAST.Slice _ a bitrange) = "SLICE NYI"
