@@ -11,7 +11,7 @@
 --
 ----------------------------------------------------------------------
 let 
-    tests = (map takeBaseName (find withSuffix ".soc"))
+    tests = map takeBaseName (find withSuffix ".soc")
     test_rules = map sockeye2PlTest tests
     echo t = [ Str "@echo \"=====================\"", NL
              , Str $ "@echo \"Resulf of test " ++ t ++ "\":", NL

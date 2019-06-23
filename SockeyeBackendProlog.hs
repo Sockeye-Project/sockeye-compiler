@@ -133,12 +133,13 @@ instance PrologGenerator AST.Module where
     let bodyChecks = [predicate "is_list" ["Id"]] ++ map (\x -> predicate "nonvar" [x]) p1
 
     consts <- mapM generate (AST.constants m)
+    tags <- mapM generate (AST.moduleTags m)
     nodeDecls <- mapM generate (AST.nodeDecls m)
     let instDecls = []
     bodyDefs <- mapM generate (AST.definitions m)
     -- Collect the accumulated extra pred. Must be inserted before the body defs
     extPred <- get_extra_pred
-    let body = pred_join $ bodyChecks ++ consts ++ nodeDecls ++ instDecls ++ extPred ++ bodyDefs
+    let body = pred_join $ bodyChecks ++ consts ++ tags ++ nodeDecls ++ instDecls ++ extPred ++ bodyDefs
     cS <- get_state_var
     return $ name ++ stringify ([statevar 0, "Id"] ++ p1 ++ [cS]) ++ " :- \n    " ++ body ++ ".\n\n"
     where
@@ -152,6 +153,10 @@ instance PrologGenerator AST.NamedConstant where
         in
             return $ l ++ " = " ++ r
 
+instance PrologGenerator AST.ModuleTag where
+    generate (AST.ModuleTag _ name exp) = do
+            expS <- generate exp
+            return $ predicate "assert_module_tag" ["Id", doublequotes name, expS]
 
 instance PrologGenerator AST.PropertyExpr where
   generate (AST.And _ a b) = do

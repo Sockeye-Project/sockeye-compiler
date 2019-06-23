@@ -1,0 +1,5 @@
+module DRAM {
+    module_tag test (0)
+    memory (0 bits 40) GDDR0
+    GDDR0 accepts [(0x000000000 to 0x0fedfffff)]
+}

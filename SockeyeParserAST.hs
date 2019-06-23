@@ -92,6 +92,7 @@ data Module = Module
     { moduleMeta  :: ASTMeta
     , moduleExtern:: Bool
     , moduleName  :: !String
+    , moduleTags  :: [ModuleTag]
     , parameters  :: [ModuleParameter]
     , constants   :: [NamedConstant]
     , instDecls   :: [InstanceDeclaration]
@@ -242,3 +243,13 @@ data NamedConstant = NamedConstant
 
 instance MetaAST NamedConstant where
     meta = namedConstMeta
+
+data ModuleTag = ModuleTag
+    { moduleTagMeta  :: ASTMeta
+    , tagName        :: !String
+    , tagExpr        :: NaturalExpr
+    }
+    deriving (Show)
+
+instance MetaAST ModuleTag where
+    meta = moduleTagMeta
