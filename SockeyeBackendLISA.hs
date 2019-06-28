@@ -176,7 +176,7 @@ generateInstantiation :: String -> Maybe AuxData -> SPAST.Definition -> [SPAST.M
 generateInstantiation moduleName auxData (SPAST.Instantiates meta inst mod args) modules = let
     params = case find (((==) mod) . SPAST.moduleName) modules of
         Nothing -> error $ "Module parameters not found for " ++ mod ++ " : " ++ (show meta)
-        Just x -> map SPAST.paramName (SPAST.parameters x)
+        Just x -> map SAST.paramName (SPAST.parameters x)
     compName = (SAST.refName inst)
     mapParamName n = param_name auxData moduleName compName  n
     mapParamValue n v = param_value auxData moduleName compName n v

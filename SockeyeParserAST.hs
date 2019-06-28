@@ -49,6 +49,9 @@ import SockeyeAST
     , natExprMeta, natExprOp1, natExprOp2, bitRange, varName, natural
     , PropertyExpr(And, Or, Not, Property, True, False)
     , propExprMeta, propExprOp1, propExprOp2, property
+    , ModuleTag(ModuleTag)
+    , ModuleParameter(ModuleParameter)
+    , paramMeta, paramName, paramRange
     )
 
 data Sockeye = Sockeye
@@ -104,15 +107,6 @@ data Module = Module
 instance MetaAST Module where
     meta = moduleMeta
 
-data ModuleParameter = ModuleParameter
-    { paramMeta  :: ASTMeta
-    , paramName  :: !String
-    , paramRange :: NaturalSet
-    }
-    deriving (Show)
-
-instance MetaAST ModuleParameter where
-    meta = paramMeta
 
 data InstanceDeclaration = InstanceDeclaration
     { instDeclMeta :: ASTMeta
@@ -244,12 +238,3 @@ data NamedConstant = NamedConstant
 instance MetaAST NamedConstant where
     meta = namedConstMeta
 
-data ModuleTag = ModuleTag
-    { moduleTagMeta  :: ASTMeta
-    , tagName        :: !String
-    , tagExpr        :: NaturalExpr
-    }
-    deriving (Show)
-
-instance MetaAST ModuleTag where
-    meta = moduleTagMeta

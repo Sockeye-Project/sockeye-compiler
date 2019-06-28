@@ -40,7 +40,8 @@ import SockeyeParser
 import SockeyeSymbolTableBuilder
 import SockeyeChecker
 
-import qualified SockeyeBackendProlog as Prolog
+import qualified SockeyeBackendProlog as PrologBackend
+import qualified PrologBuilder as PrologBuilder
 import qualified SockeyeBackendPrologMultiDim as PrologMultiDim
 import qualified SockeyeBackendIsabelle as Isabelle
 import qualified SockeyeBackendLISA as LISA
@@ -271,7 +272,7 @@ check symTable pAst =
 
 {- Compiles the AST with the selected backend -}
 compile :: Target -> ParseAST.Sockeye -> SymTable.Sockeye -> AST.Sockeye -> IO String
-compile Prolog pAst _ _ = return $ Prolog.compileDirect pAst
+compile Prolog pAst _ _ = return $ (PrologBackend.compile . PrologBuilder.build) pAst
 compile PrologMultiDim _ symTable ast = return $ PrologMultiDim.compile symTable ast
 compile Isabelle _ symTable ast = return $ Isabelle.compile symTable ast
 compile LISA pAst _ _ = compileDirectLISA pAst
