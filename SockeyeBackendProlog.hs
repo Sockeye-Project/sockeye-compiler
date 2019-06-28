@@ -47,41 +47,143 @@ data PrologBackendException
 
 instance Exception PrologBackendException
 
-{- The structure of the code generator should be very similar to the old Prolog Backend -}
+{- Above body-level generator functions -}
 compile :: PlFile -> String
-compile x = show x
+compile (PlFile mods) = intercalate "" (map generate_mod mods) 
 
+generate_mod :: PlModule -> String
+generate_mod mod = 
+    let
+        name = "add_" ++ (moduleName mod)
+        -- parameters from sockeye
+        pSock = map (sock_var_to_pl . paramName) (parameters mod)
+        bodyChecks = [predicate "is_list" ["Id"]] ++ map (\x -> predicate "nonvar" [x]) pSock
+        (bodyDefStr,ctx) = generate_body (init_toplevel_ctx mod) (body mod)
+        bodyStr = (pred_join 0 bodyChecks) ++ bodyDefStr
+        -- add internal parameters
+        pMod = [statevar 0, "Id"] ++ pSock ++ [statevar (stateCount ctx)]
+        pModStr = parens $ intercalate "," pMod
+    in
+        name ++ pModStr ++ " :- \n    " ++ bodyStr ++ ".\n\n"
+        
+
+generate_body :: CtxState -> PlBody -> (String, CtxState)
+generate_body ctx body = runState (generate body) ctx
+
+{- State and some utilities
+ - We have to track 
+ - * current state variable counter (for passing on state)  
+ - * which variables are actually in scope (for generating forall headers)
+ - * indentation level -}
 data CtxState = CtxState { stateCount :: Int
                          , scopeVars :: [String] 
+                         , indentLevel :: Int
                          }
 
 type SM = State CtxState 
 init_toplevel_ctx :: PlModule -> CtxState 
-init_toplevel_ctx mod = CtxState { stateCount = 0
-                                   , scopeVars = params_of_mod mod}
+init_toplevel_ctx mod = 
+    let
+    mod_vars :: PlModule -> [String]
+    mod_vars mod = ["Id"] ++ pars
+      where
+        pars = map sock_var_to_pl (pars_s ++ consts_s)
+        pars_s = map paramName (parameters mod)
+        consts_s = map constName (constants mod)
+    in CtxState { stateCount = 0, scopeVars = mod_vars mod, indentLevel = 0}
 
-params_of_mod :: AST.Module -> [String]
-params_of_mod mod = ["Id"] ++ pars
-  where
-    pars = map local_param_name (pars_s ++ consts_s)
-    pars_s = map AST.paramName (AST.parameters mod)
-    consts_s = map AST.constName (AST.constants mod)
 
-get_scope_vars :: ModLevelStateS [String]
+get_scope_vars :: SM [String]
 get_scope_vars = do
     st <- get
     return $ scopeVars st
 
-get_state_var :: ModLevelStateS String
+get_state_var :: SM String
 get_state_var = do
     st <- get
     return $ statevar (stateCount st)
 
-get_next_state_var :: ModLevelStateS String
+get_next_state_var :: SM String
 get_next_state_var = do
     modify (\c -> c { stateCount = (stateCount c) + 1})
     st <- get
     return $ statevar (stateCount st)
+
+{- Utilities -}
+
+-- Transform a sockeye visible name to a prolog variable
+sock_var_to_pl :: String -> String
+sock_var_to_pl x = "P_" ++ x
+
+statevar :: Int -> String
+statevar i = printf "S%i" i
+
+
+{- Below body-level generator functions -}
+class PrologGenerator a where
+    generate :: a -> SM String
+
+instance PrologGenerator PlBody where
+    generate body = return ""
+
+
+{- Helper functions -}
+pred_join :: Int -> [String] -> String 
+pred_join indent = 
+    let
+        jstr = ",n" ++ (intercalate "" $ take indent (repeat " "))
+    in
+        intercalate jstr 
+
+atom :: String -> String
+atom "" = ""
+atom name@(c:cs)
+    | isLower c && allAlphaNum cs = name
+    | otherwise = quotes name
+    where
+        allAlphaNum cs = foldl (\acc c -> isAlphaNum c && acc) Prelude.True cs
+
+predicate :: String -> [String] -> String
+predicate name args = name ++ (parens $ intercalate "," args)
+
+struct :: String -> [(String, String)] -> String
+struct name fields = name ++ (braces $ intercalate "," (map toFieldString fields))
+    where
+        toFieldString (key, value) = key ++ ":" ++ value
+
+tuple :: [String] -> String
+tuple elems = parens $ intercalate "," elems
+
+list :: [String] -> String
+list elems = brackets $ intercalate "," elems
+
+list_prepend :: String -> String -> String
+list_prepend a li = brackets $ a ++ " | " ++ li
+
+many_list_prepend :: [String] -> String -> String
+many_list_prepend as li = 
+    let
+        asS = intercalate "," as 
+    in
+        brackets $ asS ++ " | " ++ li
+
+enclose :: String -> String -> String -> String
+enclose start end string = start ++ string ++ end
+
+parens :: String -> String
+parens = enclose "(" ")"
+
+brackets :: String -> String
+brackets = enclose "[" "]"
+
+braces :: String -> String
+braces = enclose "{" "}"
+
+quotes :: String -> String
+quotes = enclose "'" "'"
+
+doublequotes :: String -> String
+doublequotes = enclose "\"" "\""
 
 -- 
 -- 
@@ -172,7 +274,6 @@ get_next_state_var = do
 --     cS <- get_state_var
 --     return $ name ++ stringify ([statevar 0, "Id"] ++ p1 ++ [cS]) ++ " :- \n    " ++ body ++ ".\n\n"
 --     where
---       stringify [] = ""
 --       stringify pp = parens $ intercalate "," pp
 -- 
 -- instance PrologGenerator AST.NamedConstant where
@@ -673,56 +774,6 @@ get_next_state_var = do
 -- 
 -- 
 -- 
--- {- Helper functions -}
--- atom :: String -> String
--- atom "" = ""
--- atom name@(c:cs)
---     | isLower c && allAlphaNum cs = name
---     | otherwise = quotes name
---     where
---         allAlphaNum cs = foldl (\acc c -> isAlphaNum c && acc) True cs
--- 
--- predicate :: String -> [String] -> String
--- predicate name args = name ++ (parens $ intercalate "," args)
--- 
--- struct :: String -> [(String, String)] -> String
--- struct name fields = name ++ (braces $ intercalate "," (map toFieldString fields))
---     where
---         toFieldString (key, value) = key ++ ":" ++ value
--- 
--- tuple :: [String] -> String
--- tuple elems = parens $ intercalate "," elems
--- 
--- list :: [String] -> String
--- list elems = brackets $ intercalate "," elems
--- 
--- list_prepend :: String -> String -> String
--- list_prepend a li = brackets $ a ++ " | " ++ li
--- 
--- many_list_prepend :: [String] -> String -> String
--- many_list_prepend as li = 
---     let
---         asS = intercalate "," as 
---     in
---         brackets $ asS ++ " | " ++ li
--- 
--- enclose :: String -> String -> String -> String
--- enclose start end string = start ++ string ++ end
--- 
--- parens :: String -> String
--- parens = enclose "(" ")"
--- 
--- brackets :: String -> String
--- brackets = enclose "[" "]"
--- 
--- braces :: String -> String
--- braces = enclose "{" "}"
--- 
--- quotes :: String -> String
--- quotes = enclose "'" "'"
--- 
--- doublequotes :: String -> String
--- doublequotes = enclose "\"" "\""
 -- 
 -- 
 -- -- nat_range_from :: AST.NaturalRange -> String
@@ -760,8 +811,6 @@ get_next_state_var = do
 -- pred_join :: [String] -> String 
 -- pred_join = intercalate ",\n    "
 -- 
--- statevar :: Int -> String
--- statevar i = printf "S%i" i
 -- 
 -- add_mod ::  String -> String -> [String] -> ModLevelStateS String
 -- add_mod idname modname args = do

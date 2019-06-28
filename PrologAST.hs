@@ -27,11 +27,13 @@ import SockeyeAST
     , PropertyExpr(And, Or, Not, Property, True, False)
     , ModuleTag(ModuleTag)
     , ModuleParameter(ModuleParameter)
+    , paramName, paramRange, paramMeta
     )
 
 import SockeyeParserAST
     ( NodeDeclaration(NodeDeclaration)
     , NamedConstant(NamedConstant)
+    , constName
     )
 
 data PlFile = PlFile [PlModule]
