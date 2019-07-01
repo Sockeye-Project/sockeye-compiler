@@ -23,7 +23,7 @@ module PrologAST
 import SockeyeASTMeta
 
 import SockeyeAST
-    ( NaturalExpr(Addition, Subtraction, Multiplication, Slice, Concat, Variable, Literal)
+    ( NaturalExpr(Addition, Subtraction, Multiplication, Slice, Concat, Variable, Literal, Constant, Parameter)
     , PropertyExpr(And, Or, Not, Property, True, False)
     , ModuleTag(ModuleTag)
     , ModuleParameter(ModuleParameter)
@@ -50,7 +50,9 @@ data PlModule = PlModule
     }
     deriving (Show)
 
-type PlVar = String
+data PlVar = PlSockVar String -- Variable appearing in sockeye source
+           | PlIntVar Int     -- Internal variable
+           deriving (Show)
 
 data PlNaturalRange = PlNaturalRange
     { base :: PlVar
@@ -92,7 +94,7 @@ data PlDefinition
     | PlTranslate
         { defMeta :: ASTMeta
         , src     :: PlRegionSpec
-        , dst     :: PlNameSpec
+        , dst     :: PlRegionSpec
         }
     | PlOverlays
         { defMeta  :: ASTMeta
@@ -114,7 +116,7 @@ data PlDefinition
     | PlForall
         { boundVarName   :: !PlVar
         , varRange       :: PlVar -- matching PlValues must exist
-        , quantifierBody :: [PlDefinition]
+        , quantifierBody :: PlBody
         }
     deriving (Show)
 
@@ -125,6 +127,7 @@ data PlQualifiedRef = PlQualifiedRef
     , instIndex :: Maybe PlVar -- matching PlIsPref must exist
     }
     deriving (Show)
+
 
 data PlNameSpec = PlNameSpec
     { nameNode :: PlQualifiedRef

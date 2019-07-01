@@ -59,9 +59,9 @@ generate_mod mod =
         pSock = map (sock_var_to_pl . paramName) (parameters mod)
         bodyChecks = [predicate "is_list" ["Id"]] ++ map (\x -> predicate "nonvar" [x]) pSock
         (bodyDefStr,ctx) = generate_body (init_toplevel_ctx mod) (body mod)
-        bodyStr = (pred_join 0 bodyChecks) ++ bodyDefStr
+        bodyStr = pred_join 0 $ bodyChecks ++ [bodyDefStr]
         -- add internal parameters
-        pMod = [statevar 0, "Id"] ++ pSock ++ [statevar (stateCount ctx)]
+        pMod = [state_var 0, "Id"] ++ pSock ++ [state_var (stateCount ctx)]
         pModStr = parens $ intercalate "," pMod
     in
         name ++ pModStr ++ " :- \n    " ++ bodyStr ++ ".\n\n"
@@ -101,13 +101,19 @@ get_scope_vars = do
 get_state_var :: SM String
 get_state_var = do
     st <- get
-    return $ statevar (stateCount st)
+    return $ state_var (stateCount st)
 
 get_next_state_var :: SM String
 get_next_state_var = do
     modify (\c -> c { stateCount = (stateCount c) + 1})
     st <- get
-    return $ statevar (stateCount st)
+    return $ state_var (stateCount st)
+
+
+pred_joinM :: [String] -> SM String
+pred_joinM preds = do
+    st <- get
+    return $ pred_join (indentLevel st) preds
 
 {- Utilities -}
 
@@ -115,8 +121,11 @@ get_next_state_var = do
 sock_var_to_pl :: String -> String
 sock_var_to_pl x = "P_" ++ x
 
-statevar :: Int -> String
-statevar i = printf "S%i" i
+state_var :: Int -> String
+state_var i = printf "S_%i" i
+
+int_var :: Int -> String
+int_var i = printf "TMP_%i" i
 
 
 {- Below body-level generator functions -}
@@ -124,14 +133,201 @@ class PrologGenerator a where
     generate :: a -> SM String
 
 instance PrologGenerator PlBody where
-    generate body = return ""
+    generate body = do
+        p1 <- mapM generate (extraPred body)
+        p2 <- mapM generate (definitions body)
+        pS <- pred_joinM (p1++p2)
+        return pS
+
+instance PrologGenerator PlDefinition where
+    generate (PlAccepts _ reg) = do
+        regStr <- generate reg
+        ass <- assert_accept regStr
+        return ass
+    generate (PlTranslate _ src dst) = do
+        srcStr <- generate src
+        dstStr <- generate dst
+        ass <- assert_translate srcStr dstStr
+        return ass
+    generate (PlOverlays _ node overlays) = do
+        nodeStr <- generate node
+        overlaysStr <- generate overlays
+        ass <- assert_overlay nodeStr overlaysStr
+        return ass
+    generate (PlBlockOverlays _ node overlays blocksize) = do
+        nodeStr <- generate node
+        overlaysStr <- generate overlays
+        overlaysStr <- generate overlays
+        blocksizeStrArr <- mapM generate blocksize
+        let blocksizeStr = list blocksizeStrArr
+        ass <- assert_configurable nodeStr blocksizeStr overlaysStr
+        return ass
+    generate (PlInstantiates _ inst instModule arguments) = do
+        instS <- generate inst
+        argS <- mapM generate arguments
+        add_mod instS instModule argS
+    generate (PlForall boundVarName varRange body) = do
+        boundVarNameS <- generate boundVarName
+        varRangeS <- generate varRange
+        bodyS <- generate body
+        return $ "(forall " ++ boundVarNameS ++ " in " ++ varRangeS ++ " do \n" ++ bodyS ++ "\n)"
+
+instance PrologGenerator PlExtraPred where
+    generate (PlValues varName valSet) = do
+            varNameS <- generate varName
+            valSetS <- generate valSet
+            return $ predicate "block_values" [varNameS, valSetS]
+    generate (PlIsPred varName expr) = do
+            varNameS <- generate varName
+            exprS <- generate expr
+            return $ varNameS ++ " is " ++ exprS
+    generate (PlBitsLimit name base bits) = do
+            nameS <- generate name
+            baseS <- generate base
+            bitsS <- generate bits
+            return $ nameS ++ " is " ++ baseS ++ " + 2^" ++ bitsS ++ " - 1"
 
 
-{- Helper functions -}
+instance PrologGenerator Integer where
+    generate x = return $ show x
+    
+instance PrologGenerator PlVar where
+    generate (PlIntVar i) = return $ int_var i 
+    generate (PlSockVar name) = return $ sock_var_to_pl name
+
+instance PrologGenerator PlRegionSpec where
+    generate as = do
+        nodeStr <- generate (regNode as)
+        blockStr <- generate (regBlock as)
+        propStr <- generate (regProp as)
+        return $ predicate "region" [nodeStr, blockStr, propStr]
+
+instance PrologGenerator PlQualifiedRef where
+    generate (PlQualifiedRef propName propIndex instName instIndex) =
+        let
+            gen_var Nothing = return Nothing
+            gen_var (Just x) = do
+                xS <- generate x
+                return $ Just xS
+        in do
+            propIndexMS <- gen_var propIndex
+            instIndexMS <- gen_var instIndex
+            let els = catMaybes [
+                            propIndexMS,
+                            Just (doublequotes propName),
+                            instIndexMS,
+                            instName >>= (Just . doublequotes)]
+            return $ many_list_prepend els "Id"
+
+instance PrologGenerator PlNameSpec where
+    generate (PlNameSpec node addr prop) =
+        do
+            nodeStr <- generate node
+            addrStr <- generate addr
+            propStr <- generate prop
+            return $ predicate "name" [nodeStr, addrStr, propStr]
+
+instance PrologGenerator PlMultiDSet where
+    generate (PlMultiDSet natSets) =
+        do 
+            natSetsS <- mapM generate natSets
+            return $ list natSetsS
+        
+instance PrologGenerator PlNaturalSet where
+    generate (PlNaturalSet natRanges) =
+        do 
+            natRangesS <- mapM generate natRanges
+            return $ list natRangesS
+
+instance PrologGenerator PlNaturalRange where
+    generate (PlNaturalRange base limit) =
+        do
+            baseS <- generate base
+            limitS <- generate limit
+            return $ predicate "block" [baseS, limitS]
+
+instance PrologGenerator PropertyExpr where
+    generate (And _ a b) = do
+            l <- generate a
+            r <- generate b
+            return $ predicate "and" [l, r]
+    generate (Or _ a b) = do
+            l <- generate a
+            r <- generate b
+            return $ predicate "or" [l, r]
+    generate (Not _ a) = do
+            l <- generate a
+            return $ predicate "not" [l]
+    generate (Property _ s) = return $ atom s
+    generate (PrologAST.True) = return $ atom "true"
+    generate (PrologAST.False) = return $ atom "false"
+
+instance PrologGenerator NaturalExpr where
+    generate = genm
+        where
+            genm :: NaturalExpr -> SM String
+            genm (Addition _ a b) = do
+                aS <- genm a
+                bS <- genm b
+                return $ "(" ++ aS ++ ")+(" ++ bS ++ ")"
+            genm (Subtraction _ a b) = do
+                aS <- genm a
+                bS <- genm b
+                return $ "(" ++ aS ++ ")-(" ++ bS ++ ")"
+            genm (Multiplication _ a b) = do
+                aS <- genm a
+                bS <- genm b
+                return $ "(" ++ aS ++ ")*(" ++ bS ++ ")"
+            -- and the terminals
+            genm x = return $ gen x 
+
+            gen :: NaturalExpr -> String
+            gen (Constant _ v) = sock_var_to_pl v
+            gen (Variable _ v) = sock_var_to_pl v
+            gen (Parameter _ v) = sock_var_to_pl v
+            gen (Literal _ n) = show n
+            gen (Slice _ a bitrange) = "SLICE NYI"
+            gen (Concat _ a b) = "CONCAT NYI"
+
+
+{- Assert wrappers -}
+assert_translate ::  String -> String -> SM String
+assert_translate src dst = do
+    sIn <- get_state_var
+    sOut <- get_next_state_var
+    return $ predicate "assert_translate" [sIn, src, dst, sOut]
+
+assert_accept ::  String -> SM String
+assert_accept reg = do
+    sIn <- get_state_var
+    sOut <- get_next_state_var
+    return $ predicate "assert_accept" [sIn, reg, sOut]
+
+assert_overlay ::  String -> String -> SM String
+assert_overlay src dst = do
+    sIn <- get_state_var
+    sOut <- get_next_state_var
+    return $ predicate "assert_overlay" [sIn, src, dst, sOut]
+
+assert_configurable ::   String -> String -> String -> SM String
+assert_configurable src bits dst = do
+    sIn <- get_state_var
+    sOut <- get_next_state_var
+    return $ predicate "assert_configurable" [sIn, src, bits, dst, sOut]
+
+add_mod ::  String -> String -> [String] -> SM String
+add_mod idname modname args = do
+    sIn <- get_state_var
+    sOut <- get_next_state_var
+    return $ predicate ("add_" ++ modname) ([sIn, idname] ++ args ++ [sOut])
+
+
+{- Formatting functions -}
 pred_join :: Int -> [String] -> String 
 pred_join indent = 
     let
-        jstr = ",n" ++ (intercalate "" $ take indent (repeat " "))
+        nspace = (indent+1) * 4
+        jstr = ",\n" ++ (intercalate "" $ take nspace (repeat " "))
     in
         intercalate jstr 
 
