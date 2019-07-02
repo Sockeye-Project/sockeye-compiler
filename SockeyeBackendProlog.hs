@@ -54,17 +54,18 @@ compile (PlFile mods) = intercalate "" (map generate_mod mods)
 generate_mod :: PlModule -> String
 generate_mod mod = 
     let
+        join_body_pts a b = if blank b then a else a ++ ",\n" ++ b
         name = "add_" ++ (moduleName mod)
         -- parameters from sockeye
         pSock = map (sock_var_to_pl . paramName) (parameters mod)
         bodyChecks = [predicate "is_list" ["Id"]] ++ map (\x -> predicate "nonvar" [x]) pSock
         (bodyDefStr,ctx) = generate_body (init_toplevel_ctx mod) (body mod)
-        bodyStr = pred_join 0 $ bodyChecks ++ [bodyDefStr]
+        bodyStr = join_body_pts (pred_join 0 $ bodyChecks) bodyDefStr
         -- add internal parameters
         pMod = [state_var 0, "Id"] ++ pSock ++ [state_var (stateCount ctx)]
         pModStr = parens $ intercalate "," pMod
     in
-        name ++ pModStr ++ " :- \n    " ++ bodyStr ++ ".\n\n"
+        name ++ pModStr ++ " :- \n" ++ bodyStr ++ ".\n\n"
         
 
 generate_body :: CtxState -> PlBody -> (String, CtxState)
@@ -92,11 +93,32 @@ init_toplevel_ctx mod =
         consts_s = map constName (constants mod)
     in CtxState { stateCount = 0, scopeVars = mod_vars mod, indentLevel = 0}
 
+-- Create a new child context for a new nesterd forall block
+child_ctx :: CtxState -> String -> CtxState
+child_ctx parent varName = CtxState { stateCount = 0
+                                    , scopeVars = ((scopeVars parent) ++ [varName])
+                                    , indentLevel = (indentLevel parent) + 1
+                                    }
+
+-- Update the parental context (current) with the context from a child (argument)
+child_done :: CtxState -> SM ()
+child_done child_ctx = do
+    modify (\c -> c { stateCount = (stateCount child_ctx)})
+    return ()
+
 
 get_scope_vars :: SM [String]
 get_scope_vars = do
     st <- get
     return $ scopeVars st
+
+get_scope_param_str :: SM (Maybe String)
+get_scope_param_str = do
+    vars <- get_scope_vars
+    return $ pstr vars
+    where
+        pstr [] = Nothing
+        pstr xs = Just $ predicate "param" xs
 
 get_state_var :: SM String
 get_state_var = do
@@ -169,8 +191,17 @@ instance PrologGenerator PlDefinition where
     generate (PlForall boundVarName varRange body) = do
         boundVarNameS <- generate boundVarName
         varRangeS <- generate varRange
-        bodyS <- generate body
-        return $ "(forall " ++ boundVarNameS ++ " in " ++ varRangeS ++ " do \n" ++ bodyS ++ "\n)"
+        st <- get
+        let (bodyS,child_done_ctx) = generate_body (child_ctx st boundVarNameS) body
+        cS <- get_state_var
+        -- hdr3 = param(S_2, S_99)
+        let hdr3 = Just $ predicate "param" [cS, state_var (stateCount child_done_ctx)]
+        _ <- child_done child_done_ctx
+        let hdr1 = Just $ "foreach(" ++ boundVarNameS ++ "," ++ varRangeS ++ ")"
+        hdr2 <- get_scope_param_str
+        let hdr = intercalate "," $ catMaybes [hdr1, hdr2, hdr3]
+        footer <- pred_joinM [")"]
+        return $ "(" ++ hdr ++ " do \n" ++ bodyS ++ "\n" ++ footer
 
 instance PrologGenerator PlExtraPred where
     generate (PlValues varName valSet) = do
@@ -188,9 +219,13 @@ instance PrologGenerator PlExtraPred where
             return $ nameS ++ " is " ++ baseS ++ " + 2^" ++ bitsS ++ " - 1"
 
 
+instance PrologGenerator PlImmediate where
+    generate (PlImmediateStr s) = return $ doublequotes s
+    generate (PlImmediateVar var) = generate var
+
 instance PrologGenerator Integer where
     generate x = return $ show x
-    
+
 instance PrologGenerator PlVar where
     generate (PlIntVar i) = return $ int_var i 
     generate (PlSockVar name) = return $ sock_var_to_pl name
@@ -205,18 +240,20 @@ instance PrologGenerator PlRegionSpec where
 instance PrologGenerator PlQualifiedRef where
     generate (PlQualifiedRef propName propIndex instName instIndex) =
         let
-            gen_var Nothing = return Nothing
-            gen_var (Just x) = do
+            gen_maybe Nothing = return Nothing
+            gen_maybe (Just x) = do
                 xS <- generate x
                 return $ Just xS
         in do
-            propIndexMS <- gen_var propIndex
-            instIndexMS <- gen_var instIndex
+            propIndexMS <- gen_maybe propIndex
+            instIndexMS <- gen_maybe instIndex
+            propNameS <-  generate propName
+            instNameMS <- gen_maybe instName
             let els = catMaybes [
                             propIndexMS,
-                            Just (doublequotes propName),
+                            Just propNameS,
                             instIndexMS,
-                            instName >>= (Just . doublequotes)]
+                            instNameMS]
             return $ many_list_prepend els "Id"
 
 instance PrologGenerator PlNameSpec where
@@ -324,12 +361,13 @@ add_mod idname modname args = do
 
 {- Formatting functions -}
 pred_join :: Int -> [String] -> String 
-pred_join indent = 
+pred_join indent preds = 
     let
         nspace = (indent+1) * 4
-        jstr = ",\n" ++ (intercalate "" $ take nspace (repeat " "))
-    in
-        intercalate jstr 
+        spacestr = (intercalate "" $ take nspace (repeat " "))
+        jstr = ",\n" ++ spacestr
+     in
+        spacestr ++ (intercalate jstr preds)
 
 atom :: String -> String
 atom "" = ""
@@ -380,6 +418,9 @@ quotes = enclose "'" "'"
 
 doublequotes :: String -> String
 doublequotes = enclose "\"" "\""
+
+blank :: String -> Bool
+blank = all isSpace
 
 -- 
 -- 

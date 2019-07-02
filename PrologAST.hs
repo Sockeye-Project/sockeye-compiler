@@ -120,10 +120,14 @@ data PlDefinition
         }
     deriving (Show)
 
+data PlImmediate = PlImmediateStr String
+                 | PlImmediateVar PlVar
+    deriving (Show)
+
 data PlQualifiedRef = PlQualifiedRef
-    { propName  :: String
+    { propName  :: PlImmediate
     , propIndex :: Maybe PlVar -- matching PlIsPred must exist
-    , instName  :: Maybe String
+    , instName  :: Maybe PlImmediate
     , instIndex :: Maybe PlVar -- matching PlIsPref must exist
     }
     deriving (Show)

@@ -153,12 +153,12 @@ gen_limit_exp base bits = do
 
 wrap_uqr :: AST.UnqualifiedRef -> (PlQualifiedRef -> SM [PlDefinition]) -> SM [PlDefinition]
 wrap_uqr (AST.UnqualifiedRef _ name Nothing) gen =
-    gen (PlQualifiedRef name Nothing Nothing Nothing)
+    gen (PlQualifiedRef (PlImmediateStr name) Nothing Nothing Nothing)
 wrap_uqr (AST.UnqualifiedRef _ name (Just ai)) gen =
     do
         matV <- gen_array_idx ai
         itV <- get_next_tmp_var
-        let it_ref = PlQualifiedRef { propName = show itV
+        let it_ref = PlQualifiedRef { propName = PlImmediateVar itV
                                     , propIndex = Nothing
                                     , instName = Nothing
                                     , instIndex = Nothing
@@ -174,7 +174,7 @@ wrap_nr (AST.InputPortRef _ inst node) gen_outer =
         gen_inner2 :: PlQualifiedRef -> PlQualifiedRef -> SM [PlDefinition]
         gen_inner2 instR nodeR =
             -- Merge the instR and nodeR into a new one
-            gen_outer $ PlQualifiedRef { propName = propName nodeR
+            gen_outer $ PlQualifiedRef { propName =  propName nodeR
                                        , propIndex = propIndex nodeR
                                        , instName = Just (propName instR)
                                        , instIndex = propIndex instR
