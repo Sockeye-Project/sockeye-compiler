@@ -51,17 +51,36 @@ build s = let
 generate_file :: AST.SockeyeFile -> PlFile
 generate_file f = PlFile (map gen_module (AST.modules f))
 
+{- We build this data structures to lookup declarations etc in the current module -}
+data ModuleInfo = ModuleInfo [NodeDeclaration]
+node_domains :: ModuleInfo -> String -> Maybe (AST.Domain, AST.Domain)
+node_domains (ModuleInfo decls) name =
+    do
+        decl <- find ((==name) . AST.nodeName) decls
+        let nt = (AST.nodeType decl) 
+        return $ (AST.originDomain nt, AST.targetDomain nt)
+    
+
 {- Generator state -} 
 data CtxState = CtxState { tmpCount :: Int
                          , ctxPred :: [PlExtraPred]
+                         , modInfo :: ModuleInfo
                          }
 
-type SM = State CtxState 
 
-init_ctx_state :: CtxState 
-init_ctx_state = CtxState { tmpCount = 0
-                          , ctxPred = []
-                          }
+mod_ctx_state :: AST.Module -> CtxState
+mod_ctx_state mod = CtxState { tmpCount = 0
+                             , ctxPred = []
+                             , modInfo = ModuleInfo (AST.nodeDecls mod)
+                             }
+    
+
+child_ctx_state :: CtxState -> CtxState
+child_ctx_state paren = paren { ctxPred = [] }
+
+
+{- Generator Monad and helpers -}
+type SM = State CtxState 
 
 get_next_tmp_var :: SM PlVar
 get_next_tmp_var = do
@@ -87,64 +106,9 @@ gen_limit_exp base bits = do
     modify (\c -> c { ctxPred = (ctxPred c) ++ [PlBitsLimit var base bits]})
     return var
 
-{- Wrapping of indices  -}
-
--- data QuantSpec = NoQuant PlQualifiedRef                      -- No forall needed, 
---                | OneQuant PlQualifiedRef String AST.ArrayIndex   -- We need a forall quantization
--- 
--- wrap :: AST.Definition -> SM PlDefinition
--- wrap (AST.Forall _ it range defs) = do
---     defs_wrapped <- mapM wrap defs
---     return $ PlForall it [range] defs_wrapped
--- wrap def = 
---     let 
---         ext_ws :: AST.WildcardSet -> AST.NaturalSet
---         ext_ws (AST.ExplicitSet _ ns) = ns
---         ext_ws _ = throw $ NYIException "ext_ws with wildcard"
---         ext_ai :: AST.ArrayIndex -> [AST.NaturalSet]
---         ext_ai (AST.ArrayIndex _ ws) = map ext_ws ws
--- 
---         self_qual :: AST.UnqualifiedRef -> SM QuantSpec
---         self_qual (AST.UnqualifiedRef m i Nothing) = return (NoQuant $ PlQualifiedRef {
---                 propName = m,
---                 propIndex = Nothing,
---                 instName = Nothing,
---                 instIndex = Nothing })
---         self_qual (AST.UnqualifiedRef m i (Just ai)) = do
---             s <- get_next_tmp_var
---             let ref = PlQualifiedRef {
---                 propName = m,
---                 propIndex = PlInternalVar s,
---                 instName = Nothing,
---                 instIndex = Nothing }
---             return $ OneQuant ref s ai
---                 
---         -- substitute the reference in definition with first arg
---         subst_ref :: PlQualifiedRef -> AST.Definition -> PlDefinition
---         subst_ref _  (AST.Forall _ _ _ _) =
---             throw $ AssertException $ "can't get UQR from forall "
---         subst_ref qr (AST.Accepts m _ accepts) = PlAccepts m qr accepts
---         subst_ref qr (AST.Maps m _ b) = PlMaps m qr b
---         subst_ref _  x = throw $ NYIException "implement subst_ref" ++ (show x)
--- 
---         get_ref :: AST.Definition -> AST.UnqualifiedRef
---         get_ref (AST.Forall _ _ _ _) =
---             throw $ AssertException $ "can't get UQR from forall "
---         get_ref (AST.Binds _ i _) = i
---         get_ref (AST.Instantiates _ i _ _) = i
---         get_ref (AST.BlockOverlays _ i _ _) = i
---         get_ref (AST.Overlays _ i _) = i
---         get_ref (AST.Converts _ i _) = i
---         get_ref (AST.Maps _ i _) = i
---         get_ref (AST.Accepts _ i _) = i
---         
---     in do
---         quant <- self_qual (get_ref def)
---         case quant of 
---             NoQuant qr -> return $ subst_ref qr def
---             OneQuant qr it ai -> return $ PlForall it (ext_ai ai) (subst_ref qr def)
 
 {-
+ - Wrapping of indices  
  - This will turn an unqualified reference into a PlQualifiedReference
  - and call the generator with it.
  - If the reference contains block statements and it is therefore 
@@ -164,7 +128,7 @@ wrap_uqr (AST.UnqualifiedRef _ name (Just ai)) gen =
                                     , instIndex = Nothing
                                     }
         ctx <- get
-        let body = gen_body init_ctx_state (gen it_ref)
+        let body = gen_body (child_ctx_state ctx) (gen it_ref)
         return $ [PlForall itV matV body]
 
 wrap_nr :: AST.NodeReference -> (PlQualifiedRef -> SM [PlDefinition]) -> SM [PlDefinition]
@@ -231,14 +195,18 @@ gen_array_idx (AST.ArrayIndex _ ws) = do
     return var
 
 gen_module :: AST.Module -> PlModule
-gen_module m = PlModule
+gen_module m = 
+    let
+        body = gen_body (mod_ctx_state m) (gen_defs $ AST.definitions m)
+    in
+        PlModule
                     { moduleMeta = (AST.moduleMeta m)
                     , moduleName = (AST.moduleName m)
                     , moduleTags = (AST.moduleTags m)
                     , parameters = (AST.parameters m)
                     , nodeDecls  = (AST.nodeDecls  m)
                     , constants  = (AST.constants  m)
-                    , body       = gen_body init_ctx_state (gen_defs $ AST.definitions m)
+                    , body       = body
                     }
 
 gen_body :: CtxState -> SM [PlDefinition] -> PlBody
@@ -278,21 +246,22 @@ gen_def (AST.Accepts m n accepts) =
 
 gen_def (AST.Maps meta n maps) =
     let
-        mk_target_i :: PlRegionSpec -> AST.AddressBlock -> PlQualifiedRef -> SM [PlDefinition]
-        mk_target_i srcReg destAb destN = do
+        mk_target_i :: PlQualifiedRef -> AST.AddressBlock -> AST.AddressBlock -> PlQualifiedRef -> SM [PlDefinition]
+        mk_target_i srcNode srcAb destAb destN = do
+            srcReg <- gen_region srcNode srcAb
             destReg <- gen_region destN destAb
             return $ [PlTranslate meta srcReg destReg]
 
-        mk_target :: PlRegionSpec -> AST.MapTarget -> SM [PlDefinition]
-        mk_target srcReg mt = do
-            let wrapi = mk_target_i srcReg (AST.targetAddr mt)
+        mk_target :: PlQualifiedRef -> AST.AddressBlock -> AST.MapTarget -> SM [PlDefinition]
+        mk_target srcNode srcAb mt = do
+            let wrapi = mk_target_i srcNode srcAb (AST.targetAddr mt)
             defs <- wrap_nr (AST.targetNode mt) wrapi
-            return $ defs
+            return defs
             
         mk_map :: PlQualifiedRef -> AST.MapSpec -> SM [PlDefinition]
         mk_map srcNode ms = do
-            srcReg <- gen_region srcNode (AST.mapAddr ms)
-            res <- mapM (mk_target srcReg) (AST.mapTargets ms)
+            let srcAb = AST.mapAddr ms
+            res <- mapM (mk_target srcNode srcAb) (AST.mapTargets ms)
             return $ concat res
 
         mk_maps :: PlQualifiedRef -> SM [PlDefinition]
@@ -302,10 +271,18 @@ gen_def (AST.Maps meta n maps) =
 
     in wrap_uqr n mk_maps
         
-gen_def (AST.Converts m node converts) = return []
+gen_def (AST.Instantiates m inst instModule arguments) = return []
+    --let
+    --    mk_inst :: PlQualifiedRef -> SM PlDefinition
+    --    mk_inst instr = do
+    --        return (PlInstantiates instr
+    --do
+    --    wrap_uqr inst mk_inst 
+
+gen_def (AST.Converts m node converts) = gen_def (AST.Maps m node converts)
+
 gen_def (AST.Overlays m node overlays) = return []
 gen_def (AST.BlockOverlays m node overlays sizes) = return []
-gen_def (AST.Instantiates m inst instModule arguments) = return []
 gen_def (AST.Binds m inst bindings) = return []
 gen_def (AST.Forall m varName varRange body) = return []
 

@@ -95,7 +95,7 @@ init_toplevel_ctx mod =
 
 -- Create a new child context for a new nesterd forall block
 child_ctx :: CtxState -> String -> CtxState
-child_ctx parent varName = CtxState { stateCount = 0
+child_ctx parent varName = CtxState { stateCount = (stateCount parent)
                                     , scopeVars = ((scopeVars parent) ++ [varName])
                                     , indentLevel = (indentLevel parent) + 1
                                     }
@@ -207,7 +207,7 @@ instance PrologGenerator PlExtraPred where
     generate (PlValues varName valSet) = do
             varNameS <- generate varName
             valSetS <- generate valSet
-            return $ predicate "block_values" [varNameS, valSetS]
+            return $ predicate "block_values" [valSetS, varNameS]
     generate (PlIsPred varName expr) = do
             varNameS <- generate varName
             exprS <- generate expr
