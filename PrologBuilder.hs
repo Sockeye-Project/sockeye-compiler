@@ -176,7 +176,8 @@ gen_ns (AST.NaturalSet _ nr) = do
 
 gen_ws :: AST.WildcardSet -> SM PlNaturalSet
 gen_ws (AST.ExplicitSet _ ns) = gen_ns ns
-gen_ws (AST.Wildcard _) = throw $ NYIException "Wildcard"
+gen_ws (AST.Wildcard _) = -- throw $ NYIException "Wildcard"
+    return $ PlNaturalSet []
 
 gen_ai :: AST.ArrayIndex -> SM PlMultiDSet
 gen_ai (AST.ArrayIndex m ws) = do
