@@ -272,13 +272,14 @@ gen_def (AST.Maps meta n maps) =
 
     in wrap_uqr n mk_maps
         
-gen_def (AST.Instantiates m inst instModule arguments) = return []
-    --let
-    --    mk_inst :: PlQualifiedRef -> SM PlDefinition
-    --    mk_inst instr = do
-    --        return (PlInstantiates instr
-    --do
-    --    wrap_uqr inst mk_inst 
+gen_def (AST.Instantiates m inst instModule arguments) = --return []
+    let
+        mk_inst :: PlQualifiedRef -> SM [PlDefinition]
+        mk_inst instqr = do
+            args <- mapM gen_exp arguments
+            return [PlInstantiates m instqr instModule args]
+    in 
+        wrap_uqr inst mk_inst 
 
 gen_def (AST.Converts m node converts) = gen_def (AST.Maps m node converts)
 

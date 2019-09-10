@@ -56,11 +56,14 @@ generate_mod mod =
     let
         join_body_pts a b = if blank b then a else a ++ ",\n" ++ b
         name = "add_" ++ (moduleName mod)
+        -- constants
+        bodyConsts = map generate_const (constants mod)
         -- parameters from sockeye
         pSock = map (sock_var_to_pl . paramName) (parameters mod)
         bodyChecks = [predicate "is_list" ["Id"]] ++ map (\x -> predicate "nonvar" [x]) pSock
+        bodyPreamble = bodyConsts ++ bodyChecks
         (bodyDefStr,ctx) = generate_body (init_toplevel_ctx mod) (body mod)
-        bodyStr = join_body_pts (pred_join 0 $ bodyChecks) bodyDefStr
+        bodyStr = join_body_pts (pred_join 0 $ bodyPreamble) bodyDefStr
         -- add internal parameters
         pMod = [state_var 0, "Id"] ++ pSock ++ [state_var (stateCount ctx)]
         pModStr = parens $ intercalate "," pMod
@@ -70,6 +73,10 @@ generate_mod mod =
 
 generate_body :: CtxState -> PlBody -> (String, CtxState)
 generate_body ctx body = runState (generate body) ctx
+
+generate_const :: NamedConstant -> String
+generate_const (NamedConstant _ name val) =
+    printf "%s is %d" (sock_var_to_pl name) val
 
 {- State and some utilities
  - We have to track 
