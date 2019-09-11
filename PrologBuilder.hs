@@ -278,7 +278,7 @@ gen_def (AST.Maps meta n maps) =
 
     in wrap_uqr n mk_maps
         
-gen_def (AST.Instantiates m inst instModule arguments) = --return []
+gen_def (AST.Instantiates m inst instModule arguments) =
     let
         mk_inst :: PlQualifiedRef -> SM [PlDefinition]
         mk_inst instqr = do
@@ -289,9 +289,6 @@ gen_def (AST.Instantiates m inst instModule arguments) = --return []
 
 gen_def (AST.Converts m node converts) = gen_def (AST.Maps m node converts)
 
-gen_def (AST.Overlays m node overlays) = return []
-gen_def (AST.BlockOverlays m node overlays sizes) = return []
-gen_def (AST.Binds m inst bindings) = return []
 gen_def (AST.Forall m varName varRange body) =
     do
         natset <- gen_ns varRange
@@ -306,3 +303,12 @@ gen_def (AST.Forall m varName varRange body) =
         let pl_body = gen_body (child_ctx_state ctx) (gen_defs body)
         return $ [PlForall itV matV pl_body]
 
+gen_def (AST.Overlays m n o) = 
+    let 
+        gen1 nq oq = return [PlOverlays m nq oq]
+        gen nq = wrap_nr o (gen1 nq)
+    in
+        wrap_uqr n gen
+
+gen_def (AST.BlockOverlays m node overlays sizes) = return []
+gen_def (AST.Binds m inst bindings) = return []
