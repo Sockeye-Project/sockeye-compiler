@@ -228,10 +228,14 @@ instance PrologGenerator PlDefinition where
         return $ "(" ++ hdr ++ " do \n" ++ bodyS ++ "\n" ++ footer
 
 instance PrologGenerator PlExtraPred where
-    generate (PlValues varName valSet) = do
+    generate (PlValues varName valNatSet) = do
             varNameS <- generate varName
-            valSetS <- generate valSet
-            return $ predicate "block_values" [valSetS, varNameS]
+            valSetS <- generate valNatSet
+            return $ predicate "nat_values" [valSetS, varNameS]
+    generate (PlMultiDValues varName valMultiDSet) = do
+            varNameS <- generate varName
+            valSetS <- generate valMultiDSet
+            return $ predicate "multid_values" [valSetS, varNameS]
     generate (PlIsPred varName expr) = do
             varNameS <- generate varName
             exprS <- generate expr

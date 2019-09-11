@@ -97,6 +97,12 @@ gen_exp exp = do
 materialize_multid_set :: PlMultiDSet -> SM PlVar
 materialize_multid_set s = do
     var <- get_next_tmp_var 
+    modify (\c -> c { ctxPred = (ctxPred c) ++ [PlMultiDValues var s]})
+    return var
+
+materialize_nat_set :: PlNaturalSet -> SM PlVar
+materialize_nat_set s = do
+    var <- get_next_tmp_var 
     modify (\c -> c { ctxPred = (ctxPred c) ++ [PlValues var s]})
     return var
 
@@ -286,5 +292,17 @@ gen_def (AST.Converts m node converts) = gen_def (AST.Maps m node converts)
 gen_def (AST.Overlays m node overlays) = return []
 gen_def (AST.BlockOverlays m node overlays sizes) = return []
 gen_def (AST.Binds m inst bindings) = return []
-gen_def (AST.Forall m varName varRange body) = return []
+gen_def (AST.Forall m varName varRange body) =
+    do
+        natset <- gen_ns varRange
+        matV <- materialize_nat_set natset
+        let itV = PlSockVar varName
+        let it_ref = PlQualifiedRef { propName = PlImmediateVar itV
+                                    , propIndex = Nothing
+                                    , instName = Nothing
+                                    , instIndex = Nothing
+                                    }
+        ctx <- get
+        let pl_body = gen_body (child_ctx_state ctx) (gen_defs body)
+        return $ [PlForall itV matV pl_body]
 

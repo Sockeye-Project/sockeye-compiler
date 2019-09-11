@@ -74,10 +74,14 @@ data PlExtraPred
     | PlBitsLimit { varName :: PlVar
                   , varBase :: PlVar 
                   , varBits :: PlVar }
-    -- will set varName to contain a list of possible values in expr
-    -- (ie it will materialize the array index)
+    -- will set varName to be a list of possible values in valSet
     | PlValues { varName :: PlVar
-               , valSet :: PlMultiDSet }
+               , valNatSet :: PlNaturalSet }
+    -- like plvalues, but with multi dimension.
+    -- will set varName to be a list of possible values in expr. Each
+    -- of these values is a list of dimension indices
+    | PlMultiDValues { varName :: PlVar
+                     , valMultiDSet :: PlMultiDSet }
     deriving(Show)
 
 data PlBody = PlBody
@@ -115,7 +119,7 @@ data PlDefinition
         }
     | PlForall
         { boundVarName   :: !PlVar
-        , varRange       :: PlVar -- matching PlValues must exist
+        , varRange       :: PlVar -- matching PlMultiDValues must exist
         , quantifierBody :: PlBody
         }
     deriving (Show)
