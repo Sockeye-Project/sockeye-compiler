@@ -3,6 +3,6 @@ module DRAM {
     memory (0 bits 40; 0 bits 40) PAS
 
     PAS maps [
-        (1,2 ; 20 to 30) to PAS at (5,6 ; 30 to 40)
+        (1,2 ; 20 to 30) to GDDR0 at (5,6 ; 30 to 40)
     ]
 }

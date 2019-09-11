@@ -54,7 +54,7 @@ compile (PlFile mods) = intercalate "" (map generate_mod mods)
 generate_mod :: PlModule -> String
 generate_mod mod = 
     let
-        join_body_pts a b = if blank b then a else a ++ ",\n" ++ b
+        join_bd pts = intercalate ",\n" $ filter (any isLetter) pts
         name = "add_" ++ (moduleName mod)
         -- constants
         bodyConsts = map generate_const (constants mod)
@@ -62,8 +62,9 @@ generate_mod mod =
         pSock = map (sock_var_to_pl . paramName) (parameters mod)
         bodyChecks = [predicate "is_list" ["Id"]] ++ map (\x -> predicate "nonvar" [x]) pSock
         bodyPreamble = bodyConsts ++ bodyChecks
-        (bodyDefStr,ctx) = generate_body (init_toplevel_ctx mod) (body mod)
-        bodyStr = join_body_pts (pred_join 0 $ bodyPreamble) bodyDefStr
+        (bodyDefStr,ctx1) = generate_body (init_toplevel_ctx mod) (body mod)
+        (tagsDefStr,ctx) = generate_tags ctx1 (moduleTags mod)
+        bodyStr = join_bd [(pred_join 0 $ bodyPreamble), tagsDefStr, bodyDefStr]
         -- add internal parameters
         pMod = [state_var 0, "Id"] ++ pSock ++ [state_var (stateCount ctx)]
         pModStr = parens $ intercalate "," pMod
@@ -73,6 +74,22 @@ generate_mod mod =
 
 generate_body :: CtxState -> PlBody -> (String, CtxState)
 generate_body ctx body = runState (generate body) ctx
+
+generate_tags :: CtxState -> [ModuleTag] -> (String, CtxState)
+generate_tags ctx tags =
+    let
+        gen_tag :: ModuleTag -> SM String
+        gen_tag (ModuleTag m name exp) = do
+            expS <- generate exp
+            return $ predicate "assert_module_tag" ["Id", doublequotes name, expS]
+
+        gen_tags :: SM String
+        gen_tags = 
+            do
+                tagsS <- mapM gen_tag tags
+                return $ concat tagsS
+    in
+        runState gen_tags ctx
 
 generate_const :: NamedConstant -> String
 generate_const (NamedConstant _ name val) =
