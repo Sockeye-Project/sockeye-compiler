@@ -10,30 +10,21 @@ module DRAM {
 }
 
 module SOCKET {
-    instance RAM[1 to 11] of DRAM
+    instance RAM[1 to 4] of DRAM
 
     memory (0 bits 40) LOCAL
     LOCAL accepts [(0x000000000 to 0x0fedfffff)]
 
     memory (0 bits 40) LOCAL_SRC
 
-    RAM[1] instantiates DRAM
-    RAM[1] binds [
-        RAMOUT to LOCAL
-    ]
-
-    LOCAL_SRC maps [
-        (0x1000 to 0x2000) to RAM[1].GDDR0 at (0x1000 to 0x2000)
-    ]
-
-    forall x in (1 to 3) {
+    forall x in (1 to 4) {  
         RAM[x] instantiates DRAM
         RAM[x] binds [
             RAMOUT to LOCAL
         ]
 
         LOCAL_SRC maps [
-            (0x1000 to 0x2000) to RAM[x].GDDR0 at (0x1000 to 0x2000)
+            (x*0x2000 bits 12) to RAM[x].GDDR0 at (0 bits 12)
         ]
     } 
    

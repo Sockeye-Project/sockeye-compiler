@@ -310,5 +310,26 @@ gen_def (AST.Overlays m n o) =
     in
         wrap_uqr n gen
 
-gen_def (AST.BlockOverlays m node overlays sizes) = return []
-gen_def (AST.Binds m inst bindings) = return []
+gen_def (AST.BlockOverlays m n o sizes) = 
+    let 
+        gen1 nq oq = return [PlBlockOverlays m nq oq sizes]
+        gen nq = wrap_nr o (gen1 nq)
+    in
+        wrap_uqr n gen
+
+gen_def (AST.Binds m i bindings) = 
+    let 
+        gend iq bpq bnq = 
+            let
+                from = bpq { instName = Just $ propName iq
+                           , instIndex = propIndex iq }
+            in
+                return [PlOverlays m from bnq]
+            
+        genc iq bn bpq = wrap_nr bn (gend iq bpq)
+        genb iq (AST.PortBinding m bp bn) = wrap_uqr bp (genc iq bn) 
+        gena iq = do
+            defs <- mapM (genb iq) bindings 
+            return $ concat defs
+    in
+        wrap_uqr i gena

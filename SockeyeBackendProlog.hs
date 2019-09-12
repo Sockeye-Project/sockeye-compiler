@@ -15,14 +15,9 @@
 
 
 {-
-  TODO: This currently works on a subset of the parser AST. Ideally, there would be
-  a transformation first that:
-  * Removes wildcards and replaces it with forall loops (introducing a new variable)
-  * Expands natural expression into a seperate definition blocks (introducing new local
-    variable for each block)
-  * Everytime a range is encountered, it's passed to a natural limit/base range (no more bit ops)
-  * Pushes the type of accepted/translated blocks own to the specific blocks, this should
-    also merge the translte/convert types into one.
+  TODO:
+  * wildcards
+  * slice
 -}
 
 {-# LANGUAGE ScopedTypeVariables #-}
@@ -408,19 +403,11 @@ atom name@(c:cs)
 predicate :: String -> [String] -> String
 predicate name args = name ++ (parens $ intercalate "," args)
 
-struct :: String -> [(String, String)] -> String
-struct name fields = name ++ (braces $ intercalate "," (map toFieldString fields))
-    where
-        toFieldString (key, value) = key ++ ":" ++ value
-
-tuple :: [String] -> String
-tuple elems = parens $ intercalate "," elems
-
 list :: [String] -> String
 list elems = brackets $ intercalate "," elems
 
-list_prepend :: String -> String -> String
-list_prepend a li = brackets $ a ++ " | " ++ li
+-- list_prepend :: String -> String -> String
+-- list_prepend a li = brackets $ a ++ " | " ++ li
 
 many_list_prepend :: [String] -> String -> String
 many_list_prepend as li = 
