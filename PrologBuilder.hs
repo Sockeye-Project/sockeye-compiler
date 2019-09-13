@@ -16,8 +16,6 @@
 module PrologBuilder ( build ) where
 
 import qualified Data.Map as Map
-import Data.Char
-import Data.List
 import Control.Exception (throw, Exception)
 import Control.Monad.State.Strict
 
@@ -51,29 +49,18 @@ build s = let
 generate_file :: AST.SockeyeFile -> PlFile
 generate_file f = PlFile (map gen_module (AST.modules f))
 
-{- We build this data structures to lookup declarations etc in the current module -}
-data ModuleInfo = ModuleInfo [NodeDeclaration]
-node_domains :: ModuleInfo -> String -> Maybe (AST.Domain, AST.Domain)
-node_domains (ModuleInfo decls) name =
-    do
-        decl <- find ((==name) . AST.nodeName) decls
-        let nt = (AST.nodeType decl) 
-        return $ (AST.originDomain nt, AST.targetDomain nt)
-    
+-- {- We build this data structures to lookup declarations etc in the current module -}
 
 {- Generator state -} 
 data CtxState = CtxState { tmpCount :: Int
                          , ctxPred :: [PlExtraPred]
-                         , modInfo :: ModuleInfo
                          }
 
 
 mod_ctx_state :: AST.Module -> CtxState
 mod_ctx_state mod = CtxState { tmpCount = 0
                              , ctxPred = []
-                             , modInfo = ModuleInfo (AST.nodeDecls mod)
                              }
-    
 
 child_ctx_state :: CtxState -> CtxState
 child_ctx_state paren = paren { ctxPred = [] }
@@ -183,7 +170,8 @@ wrap_nr (AST.InputPortRef _ inst node) gen_outer =
 map_nr :: AST.NaturalRange -> (PlNaturalExpr, PlNaturalExpr)
 map_nr (AST.SingletonRange _ base) = (map_exp base, map_exp base)
 map_nr (AST.LimitRange _ base limit) = (map_exp base, map_exp limit)
-map_nr (AST.BitsRange m base bits) = (map_exp base, BitLimit m (map_exp base) (map_exp bits))
+map_nr (AST.BitsRange m base bits) =
+    (map_exp base, BitLimit m (map_exp base) (map_exp bits))
 
 gen_nr :: AST.NaturalRange -> SM PlNaturalRange
 gen_nr (AST.SingletonRange _ base) = do
@@ -207,11 +195,6 @@ gen_ws :: AST.WildcardSet -> SM PlNaturalSet
 gen_ws (AST.ExplicitSet _ ns) = gen_ns ns
 gen_ws (AST.Wildcard _) = -- throw $ NYIException "Wildcard"
     return $ PlNaturalSet []
-
-gen_ai :: AST.ArrayIndex -> SM PlMultiDSet
-gen_ai (AST.ArrayIndex m ws) = do
-    natsets <- mapM gen_ws ws
-    return $ PlMultiDSet natsets
 
 gen_addr :: AST.Address -> SM PlMultiDSet
 gen_addr (AST.Address _ ws) = do
@@ -328,11 +311,6 @@ gen_def (AST.Forall m varName varRange body) =
         natset <- gen_ns varRange
         matV <- materialize_nat_set natset
         let itV = PlSockVar varName
-        let it_ref = PlQualifiedRef { propName = PlImmediateVar itV
-                                    , propIndex = Nothing
-                                    , instName = Nothing
-                                    , instIndex = Nothing
-                                    }
         ctx <- get
         let pl_body = gen_body (child_ctx_state ctx) (gen_defs body)
         return $ [PlForall itV matV pl_body]
