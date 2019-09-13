@@ -23,9 +23,7 @@ module PrologAST
 import SockeyeASTMeta
 
 import SockeyeAST
-    ( NaturalExpr(Addition, Subtraction, Multiplication, Slice, Concat, Variable, Literal, Constant, Parameter)
-    , PropertyExpr(And, Or, Not, Property, True, False)
-    , ModuleTag(ModuleTag)
+    ( PropertyExpr(And, Or, Not, Property, True, False)
     , ModuleParameter(ModuleParameter)
     , paramName, paramRange, paramMeta
     )
@@ -36,13 +34,13 @@ import SockeyeParserAST
     , constName
     )
 
+
 data PlFile = PlFile [PlModule]
     deriving (Show)
 
 data PlModule = PlModule
     { moduleMeta  :: ASTMeta
     , moduleName  :: !String
-    , moduleTags  :: [ModuleTag]
     , parameters  :: [ModuleParameter]
     , nodeDecls   :: [NodeDeclaration]
     , constants   :: [NamedConstant]
@@ -69,11 +67,7 @@ data PlMultiDRange = PlMultiDRange [PlNaturalRange]
 data PlExtraPred
     -- will set varName to the evaluation of expr
     = PlIsPred { varName :: PlVar
-               , expr :: NaturalExpr }
-    -- yields varName = varBase + 2^varBits - 1
-    | PlBitsLimit { varName :: PlVar
-                  , varBase :: PlVar 
-                  , varBits :: PlVar }
+               , expr :: PlNaturalExpr }
     -- will set varName to be a list of possible values in valSet
     | PlValues { varName :: PlVar
                , valNatSet :: PlNaturalSet }
@@ -122,6 +116,14 @@ data PlDefinition
         , varRange       :: PlVar -- matching PlMultiDValues must exist
         , quantifierBody :: PlBody
         }
+    -- ModuleTags should only appear in the top level module body, but 
+    -- since they need the same context as the other definitions, it's
+    -- much easier to keep them here.
+    | PlModuleTag 
+        { moduleTagMeta  :: ASTMeta
+        , tagName        :: !String
+        , tagExpr        :: PlVar -- matching PlIsPred must exist
+        }
     deriving (Show)
 
 data PlImmediate = PlImmediateStr String
@@ -149,4 +151,48 @@ data PlRegionSpec = PlRegionSpec
     , regBlock :: PlMultiDSet 
     , regProp :: PropertyExpr
     }
+    deriving (Show)
+
+data PlNaturalExpr
+    = Addition
+        { natExprMeta :: ASTMeta
+        , natExprOp1  :: PlNaturalExpr
+        , natExprOp2  :: PlNaturalExpr
+        }
+    | Subtraction
+        { natExprMeta :: ASTMeta
+        , natExprOp1  :: PlNaturalExpr
+        , natExprOp2  :: PlNaturalExpr
+        }
+    | Multiplication
+        { natExprMeta :: ASTMeta
+        , natExprOp1  :: PlNaturalExpr
+        , natExprOp2  :: PlNaturalExpr
+        }
+    | Slice
+        { natExprMeta :: ASTMeta
+        , natExprOp1  :: PlNaturalExpr
+        , bitStart    :: PlNaturalExpr
+        , bitEnd      :: PlNaturalExpr
+        }
+    | Concat
+        { natExprMeta     :: ASTMeta
+        , natExprOp1      :: PlNaturalExpr
+        , natExprOp2      :: PlNaturalExpr
+        , natExprOp2Bits  :: PlNaturalExpr 
+        }
+    | BitLimit 
+        { natExprMeta   :: ASTMeta
+        , natExprOp1    :: PlNaturalExpr --base
+        , natExprOp2    :: PlNaturalExpr -- bits
+        }
+    -- A variable with a name in the sockeye source (constant/variable/parameter)
+    | SockeyeVariable 
+        { natExprMeta        :: ASTMeta
+        , natExprVarName     :: !String
+        }
+    | Literal
+        { natExprMeta :: ASTMeta
+        , natural     :: !Integer
+        }
     deriving (Show)

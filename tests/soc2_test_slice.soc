@@ -1,0 +1,12 @@
+
+module SYS {
+    memory (1 to 16) MEM
+    MEM accepts [(1 to 16)]
+    memory (1 to 16) MEM_2D
+    MEM_2D accepts [(1 to 4; 1 to 4)]
+
+    memory (1 to 16) BUS
+    forall x in (1 to 16) {
+        BUS maps [(x) to MEM_2D at (x[0]; x[1]) ]
+    }
+}

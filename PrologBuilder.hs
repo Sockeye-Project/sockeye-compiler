@@ -79,6 +79,33 @@ child_ctx_state :: CtxState -> CtxState
 child_ctx_state paren = paren { ctxPred = [] }
 
 
+{- Natural Expression mapping -}
+map_exp :: SAST.NaturalExpr -> PlNaturalExpr 
+map_exp (SAST.Concat m a (SAST.Slice m1 b1 brange)) =
+    let 
+        b = AST.Slice m1 b1 brange
+        (bs,be) = map_nr brange
+    in
+        Concat m (map_exp a) (map_exp b) (Subtraction m be bs)
+
+map_exp (SAST.Concat m a b) =
+    throw $ NYIException "Concat must be followed by explicit range"
+
+map_exp (SAST.Slice m a range) = 
+    let
+        (start, end) = map_nr range
+    in
+        Slice m (map_exp a) start end
+
+-- the easy cases    
+map_exp (SAST.Addition m a b) = Addition m (map_exp a) (map_exp b)
+map_exp (SAST.Subtraction m a b) = Subtraction m (map_exp a) (map_exp b)
+map_exp (SAST.Multiplication m a b) = Multiplication m (map_exp a) (map_exp b)
+map_exp (SAST.Constant m a) = SockeyeVariable m a
+map_exp (SAST.Variable m a) = SockeyeVariable m a
+map_exp (SAST.Parameter m a) = SockeyeVariable m a
+map_exp (SAST.Literal m a) = Literal m a
+
 {- Generator Monad and helpers -}
 type SM = State CtxState 
 
@@ -88,11 +115,15 @@ get_next_tmp_var = do
      modify (\c -> c { tmpCount = (tmpCount c) + 1})
      return $ PlIntVar (tmpCount st)
 
-gen_exp :: NaturalExpr -> SM PlVar
-gen_exp exp = do
+
+gen_pl_exp :: PlNaturalExpr -> SM PlVar
+gen_pl_exp exp = do
     var <- get_next_tmp_var 
     modify (\c -> c { ctxPred = (ctxPred c) ++ [PlIsPred var exp]})
     return var
+
+gen_exp :: AST.NaturalExpr -> SM PlVar
+gen_exp exp = gen_pl_exp (map_exp exp)
 
 materialize_multid_set :: PlMultiDSet -> SM PlVar
 materialize_multid_set s = do
@@ -104,12 +135,6 @@ materialize_nat_set :: PlNaturalSet -> SM PlVar
 materialize_nat_set s = do
     var <- get_next_tmp_var 
     modify (\c -> c { ctxPred = (ctxPred c) ++ [PlValues var s]})
-    return var
-
-gen_limit_exp :: PlVar -> PlVar -> SM PlVar
-gen_limit_exp base bits = do
-    var <- get_next_tmp_var 
-    modify (\c -> c { ctxPred = (ctxPred c) ++ [PlBitsLimit var base bits]})
     return var
 
 
@@ -154,12 +179,11 @@ wrap_nr (AST.InputPortRef _ inst node) gen_outer =
     in
         wrap_uqr inst gen_inner1
 
---wrap_nrs :: [AST.NodeReference] -> ([PlQualifiedRef] -> SM [PlDefinition]) -> SM [PlDefinition]
---wrap_nrs nrs gen = rec nrs [] 
---    where
---        rec :: [AST.NodeReference] -> [PlQualifiedRef] -> SM [PlDefinition]
---        rec [] acc = gen acc
---        rec (x:xs) acc = wrap_nr x (\qr -> rec xs (qr:acc))
+
+map_nr :: AST.NaturalRange -> (PlNaturalExpr, PlNaturalExpr)
+map_nr (AST.SingletonRange _ base) = (map_exp base, map_exp base)
+map_nr (AST.LimitRange _ base limit) = (map_exp base, map_exp limit)
+map_nr (AST.BitsRange m base bits) = (map_exp base, BitLimit m (map_exp base) (map_exp bits))
 
 gen_nr :: AST.NaturalRange -> SM PlNaturalRange
 gen_nr (AST.SingletonRange _ base) = do
@@ -169,11 +193,10 @@ gen_nr (AST.LimitRange _ base limit) = do
     bV <- gen_exp base      
     lV <- gen_exp limit      
     return $ PlNaturalRange bV lV
-gen_nr (AST.BitsRange _ base bits) = do
-    baseV <- gen_exp base      
-    bitsV <- gen_exp bits      
-    limitV <- gen_limit_exp baseV bitsV
-    return $ PlNaturalRange baseV limitV
+gen_nr (AST.BitsRange m base bits) = do
+    bV <- gen_exp base      
+    lV <- gen_pl_exp $ BitLimit m (map_exp base) (map_exp bits)
+    return $ PlNaturalRange bV lV
 
 gen_ns :: AST.NaturalSet -> SM PlNaturalSet
 gen_ns (AST.NaturalSet _ nr) = do
@@ -204,12 +227,11 @@ gen_array_idx (AST.ArrayIndex _ ws) = do
 gen_module :: AST.Module -> PlModule
 gen_module m = 
     let
-        body = gen_body (mod_ctx_state m) (gen_defs $ AST.definitions m)
+        body = gen_body (mod_ctx_state m) (gen_tags_defs (AST.moduleTags m) (AST.definitions m))
     in
         PlModule
                     { moduleMeta = (AST.moduleMeta m)
                     , moduleName = (AST.moduleName m)
-                    , moduleTags = (AST.moduleTags m)
                     , parameters = (AST.parameters m)
                     , nodeDecls  = (AST.nodeDecls  m)
                     , constants  = (AST.constants  m)
@@ -225,6 +247,12 @@ gen_body state gen =
     in
         PlBody plExt plDefs
           
+gen_tags_defs :: [SAST.ModuleTag] -> [AST.Definition] -> SM [PlDefinition]
+gen_tags_defs tags defs = do
+    mtags <- mapM gen_tag tags
+    mdefs <- gen_defs defs
+    return $ mtags ++ mdefs
+
 gen_defs :: [AST.Definition] -> SM [PlDefinition]
 gen_defs defs = do
         mdefs <- mapM gen_def defs
@@ -236,6 +264,12 @@ gen_region qr ab = do
     return PlRegionSpec { regNode=qr
                         , regBlock=block
                         , regProp=SAST.properties ab }
+
+
+gen_tag :: SAST.ModuleTag -> SM PlDefinition
+gen_tag (SAST.ModuleTag m name exp) = do
+    expV <- gen_exp exp
+    return $ PlModuleTag m name expV
 
 gen_def :: AST.Definition -> SM [PlDefinition]
 gen_def (AST.Accepts m n accepts) =

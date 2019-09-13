@@ -57,9 +57,8 @@ generate_mod mod =
         pSock = map (sock_var_to_pl . paramName) (parameters mod)
         bodyChecks = [predicate "is_list" ["Id"]] ++ map (\x -> predicate "nonvar" [x]) pSock
         bodyPreamble = bodyConsts ++ bodyChecks
-        (bodyDefStr,ctx1) = generate_body (init_toplevel_ctx mod) (body mod)
-        (tagsDefStr,ctx) = generate_tags ctx1 (moduleTags mod)
-        bodyStr = join_bd [(pred_join 0 $ bodyPreamble), tagsDefStr, bodyDefStr]
+        (bodyDefStr,ctx) = generate_body (init_toplevel_ctx mod) (body mod)
+        bodyStr = join_bd [(pred_join 0 $ bodyPreamble), bodyDefStr]
         -- add internal parameters
         pMod = [state_var 0, "Id"] ++ pSock ++ [state_var (stateCount ctx)]
         pModStr = parens $ intercalate "," pMod
@@ -69,22 +68,6 @@ generate_mod mod =
 
 generate_body :: CtxState -> PlBody -> (String, CtxState)
 generate_body ctx body = runState (generate body) ctx
-
-generate_tags :: CtxState -> [ModuleTag] -> (String, CtxState)
-generate_tags ctx tags =
-    let
-        gen_tag :: ModuleTag -> SM String
-        gen_tag (ModuleTag m name exp) = do
-            expS <- generate exp
-            return $ predicate "assert_module_tag" ["Id", doublequotes name, expS]
-
-        gen_tags :: SM String
-        gen_tags = 
-            do
-                tagsS <- mapM gen_tag tags
-                return $ concat tagsS
-    in
-        runState gen_tags ctx
 
 generate_const :: NamedConstant -> String
 generate_const (NamedConstant _ name val) =
@@ -181,6 +164,9 @@ instance PrologGenerator PlBody where
         return pS
 
 instance PrologGenerator PlDefinition where
+    generate (PlModuleTag _ name exp) = do
+        expS <- generate exp
+        return $ predicate "assert_module_tag" ["Id", doublequotes name, expS]
     generate (PlAccepts _ reg) = do
         regStr <- generate reg
         ass <- assert_accept regStr
@@ -235,12 +221,6 @@ instance PrologGenerator PlExtraPred where
             varNameS <- generate varName
             exprS <- generate expr
             return $ varNameS ++ " is " ++ exprS
-    generate (PlBitsLimit name base bits) = do
-            nameS <- generate name
-            baseS <- generate base
-            bitsS <- generate bits
-            return $ nameS ++ " is " ++ baseS ++ " + 2^" ++ bitsS ++ " - 1"
-
 
 instance PrologGenerator PlImmediate where
     generate (PlImmediateStr s) = return $ doublequotes s
@@ -322,10 +302,10 @@ instance PrologGenerator PropertyExpr where
     generate (PrologAST.True) = return $ atom "true"
     generate (PrologAST.False) = return $ atom "false"
 
-instance PrologGenerator NaturalExpr where
+instance PrologGenerator PlNaturalExpr where
     generate = genm
         where
-            genm :: NaturalExpr -> SM String
+            genm :: PlNaturalExpr -> SM String
             genm (Addition _ a b) = do
                 aS <- genm a
                 bS <- genm b
@@ -338,16 +318,27 @@ instance PrologGenerator NaturalExpr where
                 aS <- genm a
                 bS <- genm b
                 return $ "(" ++ aS ++ ")*(" ++ bS ++ ")"
-            -- and the terminals
-            genm x = return $ gen x 
+            genm (Slice _ a bitStart bitEnd) = do
+                aS <- genm a
+                bitStartS <- genm bitStart
+                bitEndS <- genm bitEnd
+                return $ predicate "bitslice" [aS,bitStartS,bitEndS]
 
-            gen :: NaturalExpr -> String
-            gen (Constant _ v) = sock_var_to_pl v
-            gen (Variable _ v) = sock_var_to_pl v
-            gen (Parameter _ v) = sock_var_to_pl v
+            genm (Concat _ a b bBits) = do
+                aS <- genm a
+                bS <- genm b
+                bBitsS <- genm bBits
+                return $ predicate "bitconcat" [aS,bS,bBitsS]
+
+            genm (BitLimit _ base bits) = do
+                baseS <- genm base
+                bitsS <- genm bits
+                return $ "(" ++ baseS ++ " + 2^" ++ bitsS ++ " - 1" ++ ")"
+
+            genm x = return $ gen x
+            gen :: PlNaturalExpr -> String
+            gen (SockeyeVariable _ v) = sock_var_to_pl v
             gen (Literal _ n) = show n
-            gen (Slice _ a bitrange) = "SLICE NYI"
-            gen (Concat _ a b) = "CONCAT NYI"
 
 
 {- Assert wrappers -}
