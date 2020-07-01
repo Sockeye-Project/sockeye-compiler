@@ -3,6 +3,7 @@ This is the compiler for the Sockeye language.
 Currently there are two versions.
 The current version is in `src` the deprecated version 1 is in `src/v1`.
 
+
 ## Build
 To build the compiler run `make sockeye`.
 This will create the compiler binary in `bin/sockeye`.
@@ -19,6 +20,9 @@ iff the test succeeds.
 
 ### Dependencies
 The Sockeye compiler has some dependencies. Stay tuned for a list. A sufficient but probably not necessary set are the Haskell dependencies for Barrelfish.
+
+For the testing infrastructure, Eclipse CLP should be installed, and the
+binary on the path using the name eclipseclp (note the non standard name).
 
 ## Documentation
 The Sockeye compiler is work in progress.
