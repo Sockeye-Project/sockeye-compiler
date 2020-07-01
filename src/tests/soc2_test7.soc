@@ -1,0 +1,16 @@
+/* test parameters and expressions */
+
+module DRAM((0 to 0xffffffff) param)  {
+    const base 0x1000
+    module_tag mpid (param)
+    memory (0 bits 40) GDDR0
+    GDDR0 accepts [
+        (0x000000000 to (base + param*2 - 10));
+        (0x100000000 bits 8)
+    ]
+}
+
+module SYS {
+    instance dram0 of DRAM
+    dram0 instantiates DRAM(0x100)
+}

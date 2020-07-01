@@ -28,7 +28,7 @@ import Debug.Trace
 
 {- import Text.Pretty.Simple (pPrint, pShowNoColor) -}
 import Data.Text.Lazy (unpack)
-import Data.Aeson (decodeStrict, FromJSON)
+import Data.Aeson (eitherDecodeStrict, FromJSON)
 import qualified Data.ByteString as B
 import Data.String.Utils
 
@@ -40,7 +40,8 @@ import SockeyeParser
 import SockeyeSymbolTableBuilder
 import SockeyeChecker
 
-import qualified SockeyeBackendProlog as Prolog
+import qualified SockeyeBackendProlog as PrologBackend
+import qualified PrologBuilder as PrologBuilder
 import qualified SockeyeBackendPrologMultiDim as PrologMultiDim
 import qualified SockeyeBackendIsabelle as Isabelle
 import qualified SockeyeBackendLISA as LISA
@@ -60,6 +61,9 @@ checkError = ExitFailure 4
 
 compileError :: ExitCode
 compileError = ExitFailure 5
+
+auxParseError :: ExitCode
+auxParseError = ExitFailure 6
 
 {- Compilation targets -}
 data Target
@@ -268,22 +272,35 @@ check symTable pAst =
 
 {- Compiles the AST with the selected backend -}
 compile :: Target -> ParseAST.Sockeye -> SymTable.Sockeye -> AST.Sockeye -> IO String
-compile Prolog pAst _ _ = return $ Prolog.compileDirect pAst
+compile Prolog pAst _ _ = return $ (PrologBackend.compile . PrologBuilder.build) pAst
 compile PrologMultiDim _ symTable ast = return $ PrologMultiDim.compile symTable ast
 compile Isabelle _ symTable ast = return $ Isabelle.compile symTable ast
 compile LISA pAst _ _ = compileDirectLISA pAst
 
 {- Note: this function actually comes from the updated 1.4 AESON package,
          which is not available in apt-get's 1.2 version -}
-decodeFileStrictSockeye :: (FromJSON a) => FilePath -> IO (Maybe a)
-decodeFileStrictSockeye = fmap decodeStrict . B.readFile
-
+eitherDecodeFileStrict :: (FromJSON a) => FilePath -> IO (Either String a)
+eitherDecodeFileStrict = fmap eitherDecodeStrict . B.readFile
 
 {- Generate LISA -}
 compileDirectLISA :: ParseAST.Sockeye -> IO String
 compileDirectLISA ast = do
-    aux <- decodeFileStrictSockeye $ replace  ".soc" ".aux" (ParseAST.entryPoint ast)
-    return $ LISA.compileDirect ast aux
+    let auxFn = replace  ".soc" ".aux" (ParseAST.entryPoint ast)
+    auxEx <- doesFileExist auxFn
+    if auxEx then
+        do
+            aux <- eitherDecodeFileStrict $ replace  ".soc" ".aux" (ParseAST.entryPoint ast)
+            case aux of
+                Right aux -> return $ LISA.compileDirect ast (Just aux)
+                Left err -> do
+                    putStrLn $ "Error while parsing " ++ auxFn
+                    putStrLn err 
+                    exitWith auxParseError
+                    
+    else
+        return $ LISA.compileDirect ast Nothing
+        
+ 
 
 {- Outputs the compilation result -}
 output :: FilePath -> String -> IO ()

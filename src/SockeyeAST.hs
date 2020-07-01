@@ -219,3 +219,24 @@ data PropertyExpr
 
 instance MetaAST PropertyExpr where
     meta = propExprMeta
+
+
+data ModuleTag = ModuleTag
+    { moduleTagMeta  :: ASTMeta
+    , tagName        :: !String
+    , tagExpr        :: NaturalExpr
+    }
+    deriving (Show)
+
+instance MetaAST ModuleTag where
+    meta = moduleTagMeta
+
+data ModuleParameter = ModuleParameter
+    { paramMeta  :: ASTMeta
+    , paramName  :: !String
+    , paramRange :: NaturalSet
+    }
+    deriving (Show)
+
+instance MetaAST ModuleParameter where
+    meta = paramMeta

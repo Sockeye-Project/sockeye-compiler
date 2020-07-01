@@ -244,8 +244,18 @@ instance Checkable [ParseAST.ModuleArg] (Map String CheckAST.ModuleArg) where
                     else failCheck curName $ WrongNumberOfArgs instName paramc argc
             checkArgType (name, expType) arg = do
                 case arg of
-                    ParseAST.NumericalArg value -> do
-                        return $ CheckAST.NumericalArg value
+                    ParseAST.AddressArg value -> do
+                        if expType == CheckAST.AddressParam
+                            then return $ CheckAST.AddressArg value
+                            else do
+                                mismatch CheckAST.AddressParam
+                                return $ CheckAST.AddressArg value
+                    ParseAST.NaturalArg value -> do
+                        if expType == CheckAST.NaturalParam
+                            then return $ CheckAST.NaturalArg value
+                            else do
+                                mismatch CheckAST.NaturalParam
+                                return $ CheckAST.AddressArg value
                     ParseAST.ParamArg paramName -> do
                         checkParamType context paramName expType
                         return $ CheckAST.ParamArg paramName

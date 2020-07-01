@@ -1,0 +1,8 @@
+// Test different types of one-dimensional ranges
+module DRAM {
+    memory (0 bits 40) GDDR0
+    GDDR0 accepts [(0x0 to 0xf)]
+    GDDR0 accepts [(100 to 200)]
+    GDDR0 accepts [(300 to 301 ; 301 to 302)]
+    GDDR0 accepts [(0x1000 bits 8)] // same as 0x1000 to 0x10ff
+}

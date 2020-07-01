@@ -69,7 +69,8 @@ data ModuleInst
     deriving (Show)
 
 data ModuleArg
-    = NumericalArg !Integer
+    = AddressArg !Integer
+    | NaturalArg !Integer
     | ParamArg !String
     deriving (Show)
 

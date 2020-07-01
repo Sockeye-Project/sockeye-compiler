@@ -52,13 +52,13 @@ data Context = Context
     , nodes        :: Set String
     }
 
-buildSockeyeNet :: InstAST.SockeyeSpec -> Maybe String -> Either (FailedChecks NetBuildFail) NetAST.NetSpec
-buildSockeyeNet ast rootNs = do
+buildSockeyeNet :: InstAST.SockeyeSpec -> Either (FailedChecks NetBuildFail) NetAST.NetSpec
+buildSockeyeNet ast = do
     let
         context = Context
             { modules      = Map.empty
             , curModule    = ""
-            , curNamespace = initNs
+            , curNamespace = []
             , curNode      = ""
             , inPortMap    = Map.empty
             , outPortMap   = Map.empty
@@ -66,10 +66,6 @@ buildSockeyeNet ast rootNs = do
             }
     net <- runChecks $ transform context ast
     return net
-    where
-      initNs = case rootNs of
-        Just ns -> [ns]
-        Nothing -> []
 
 --
 -- Build net

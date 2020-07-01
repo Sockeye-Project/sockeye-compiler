@@ -38,6 +38,7 @@ data ModuleBody
     = ConstDecl AST.NamedConstant
     | InstDecl AST.InstanceDeclaration
     | NodeDecl AST.NodeDeclaration
+    | TagDecl AST.ModuleTag
     | Def AST.Definition
 
 {- Sockeye parsing -}
@@ -93,11 +94,12 @@ sockeyeModule = do
     reserved "module"
     name <- moduleName
     params <- option [] (parens $ commaSep moduleParam)
-    (consts, insts, nodes, defs) <- braces moduleBody
+    (consts, insts, nodes, defs, tags) <- braces moduleBody
     return AST.Module
         { AST.moduleMeta  = pos
         , AST.moduleExtern = extern
         , AST.moduleName  = name
+        , AST.moduleTags  = tags
         , AST.parameters  = params
         , AST.constants   = consts
         , AST.instDecls   = insts
@@ -121,17 +123,19 @@ moduleParam = do
         }
 
 moduleBody = do
-    body <- many $ choice [constDecl, instDecl, nodeDecl, def]
-    return $ foldr splitBody ([], [], [], []) body
+    body <- many $ choice [constDecl, instDecl, nodeDecl, def, tagDecl]
+    return $ foldr splitBody ([], [], [], [], []) body
     where
         constDecl = fmap ConstDecl namedConstant
         instDecl = fmap InstDecl instanceDeclaration
         nodeDecl = fmap NodeDecl nodeDeclaration
         def = fmap Def definition
-        splitBody (ConstDecl c) (cs, is, ns, ds) = (c:cs, is, ns, ds)
-        splitBody (InstDecl i)  (cs, is, ns, ds) = (cs, i:is, ns, ds)
-        splitBody (NodeDecl n)  (cs, is, ns, ds) = (cs, is, n:ns, ds)
-        splitBody (Def d)       (cs, is, ns, ds) = (cs, is, ns, d:ds)
+        tagDecl = fmap TagDecl moduleTagDeclaration
+        splitBody (ConstDecl c) (cs, is, ns, ds, ts) = (c:cs, is, ns, ds, ts)
+        splitBody (InstDecl i)  (cs, is, ns, ds, ts) = (cs, i:is, ns, ds, ts)
+        splitBody (NodeDecl n)  (cs, is, ns, ds, ts) = (cs, is, n:ns, ds, ts)
+        splitBody (Def d)       (cs, is, ns, ds, ts) = (cs, is, ns, d:ds, ts)
+        splitBody (TagDecl t)   (cs, is, ns, ds, ts) = (cs, is, ns, ds, t:ts)
 
 instanceDeclaration = do
     pos <- getPositionMeta
@@ -350,6 +354,14 @@ namedConstant = do
     return $ AST.NamedConstant pos name value
     <?> "named constant"
 
+moduleTagDeclaration = do
+    pos <- getPositionMeta
+    reserved "module_tag"
+    name <- tagName
+    expr <- parens naturalExpr
+    return $ AST.ModuleTag pos name expr
+    <?> "module tag"
+
 addressType = do
     pos <- getPositionMeta
     addrType <- parens $ semiSep1 naturalSet
@@ -482,7 +494,7 @@ lexer = P.makeTokenParser (
         P.reservedNames =
             [ "import", "as"
             , "extern"
-            , "module"
+            , "module", "module_tag"
             , "input", "output"
             , "type", "const"
             , "memory", "intr", "power", "clock", "instance"
@@ -530,6 +542,7 @@ natural       = P.natural lexer
 
 typeName       = identString <?> "type name"
 constName      = identString <?> "constant name"
+tagName        = identString <?> "tag name"
 moduleName     = identString <?> "module name"
 parameterName  = identString <?> "parameter name"
 variableName   = identString <?> "variable name"
@@ -537,3 +550,4 @@ propertyName   = identString <?> "property name"
 identifierName = identString <?> "identifier"
 
 getPositionMeta = fmap ParserMeta getPosition
+

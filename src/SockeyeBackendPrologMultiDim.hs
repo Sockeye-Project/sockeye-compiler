@@ -68,7 +68,7 @@ gen_node_param_list :: [AST.NodeDeclaration] -> [String]
 gen_node_param_list ndl = map AST.nodeName ndl
 
 gen_nat_param_list :: [AST.ModuleParameter] -> [String]
-gen_nat_param_list pp = map AST.paramName pp
+gen_nat_param_list pp = map SAST.paramName pp
 
 instance PrologGenerator AST.Module where
   generate m = let
