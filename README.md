@@ -15,3 +15,21 @@ The Sockeye compiler is work in progress.
 The best source of documentation for the language can be found in the [Barrelfish Technote](http://www.barrelfish.org/publications/TN-025-Sockeye.pdf).
 
 For a discussion on where the Sockeye compiler is headed, see [this NetOS Wiki page](https://wiki.netos.ethz.ch/Sockeye/Language).
+
+## Merging from Barrelfish code
+
+To update this repo from Barrelfish
+
+```
+git remote add mas git@gitlab.inf.ethz.ch:OU-ROSCOE/barrelfish/asplos20-capabilities/barrelfish-asplos20-caps.git
+git fetch mas
+git checkout TOBEMERGED
+git filter-branch --subdirectory-filter tools/sockeye/
+git mv {*.hs,tests,v1} src
+find -iname Hakefile -delete
+git add .
+git commit
+git checkout master
+git merge TOBEMERGED
+```
+
