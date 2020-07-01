@@ -2,3 +2,5 @@ build
 bin
 *.hi
 *.o
+*.swo
+*.swp

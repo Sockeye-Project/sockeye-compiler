@@ -7,6 +7,16 @@ The current version is in `src` the deprecated version 1 is in `src/v1`.
 To build the compiler run `make sockeye`.
 This will create the compiler binary in `bin/sockeye`.
 
+## Testing
+
+Tests can be run with `make run-tests`. Tests are defined 
+in `src/tests`. Each test consist of two file with the same base name:
+A soc file that will be compiled to prolog and a prolog test file. The
+prolog test file defines a predicate `test` that will be executed. It 
+can make use of predicates defined in helpers to signal error conditions,
+but in the most simple case, the predicate should simply be true
+iff the test succeeds.
+
 ### Dependencies
 The Sockeye compiler has some dependencies. Stay tuned for a list. A sufficient but probably not necessary set are the Haskell dependencies for Barrelfish.
 
