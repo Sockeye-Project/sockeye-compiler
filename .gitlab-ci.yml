@@ -1,7 +1,8 @@
 stages:    
     - build 
 
-stage: build
+test:
+    stage: build
     image: "lluki/sockeye-build"
     script:
         - "make build/test_report.txt"
