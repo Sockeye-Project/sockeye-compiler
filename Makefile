@@ -12,6 +12,7 @@
 ########################################################################
 
 GHC=ghc
+ALL_TEST_OUTPUTS = $(patsubst src/tests/%.soc,build/tests/%.txt,$(wildcard src/tests/*.soc))
 
 .PHONY: sockeye sockeye1 clean
 
@@ -42,7 +43,14 @@ build/tests/%.txt : build/tests/%.pl src/tests/%.pl src-pl/*.pl
 	mv TMP.TXT $@
 
 	
-# TODO: Pattern match and run tests
-run-tests: build/tests/soc2_test1.txt
-	echo "Result of soc2_test1 is: "
-	cat build/tests/soc2_test1.txt
+build/test_report.txt: $(ALL_TEST_OUTPUTS)
+	echo "Test Report:" > build/test_report.txt
+	echo "============" >> build/test_report.txt
+	for t in $(ALL_TEST_OUTPUTS) ; do\
+		echo $$t >> build/test_report.txt && \
+		cat $$t >> build/test_report.txt && \
+		echo "" >> build/test_report.txt; \
+	done
+
+test: build/test_report.txt
+	@cat build/test_report.txt
