@@ -1,0 +1,10 @@
+stages:    
+    - build 
+
+stage: build
+    image: "lluki/sockeye-build"
+    script:
+        - "make build/test_report.txt"
+    artifacts:
+        paths:
+            - "build/test_report.txt"
