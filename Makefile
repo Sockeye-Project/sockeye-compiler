@@ -1,5 +1,5 @@
 ########################################################################
-## Copyright (c) 2017, ETH Zurich.
+## Copyright (c) 2020, ETH Zurich.
 ## All rights reserved.
 ##
 ## This file is distributed under the terms in the attached LICENSE file.
@@ -7,12 +7,12 @@
 ## ETH Zurich D-INFK, Universitaetsstrasse 6, CH-8092 Zurich.
 ## Attn: Systems Group.
 ##
-## Makefile for the Scokeye compiler
+## Makefile for the Sockeye compiler
 ##
 ########################################################################
 
 GHC=ghc
-ALL_TEST_OUTPUTS = $(patsubst src/tests/%.soc,build/tests/%.txt,$(wildcard src/tests/*.soc))
+ALL_TEST_OUTPUTS = $(patsubst socs/tests/%.soc,build/socs/tests/%.txt,$(wildcard socs/tests/*.soc))
 
 .PHONY: sockeye sockeye1 clean
 
@@ -29,11 +29,11 @@ clean:
 	rm -rf bin
 
 
-build/tests/%.pl : src/tests/%.soc bin/sockeye
-	mkdir -p build/tests
+build/socs/%.pl : socs/%.soc bin/sockeye
+	mkdir -p build/socs/tests
 	./bin/sockeye -P $< -o $@
 
-build/tests/%.txt : build/tests/%.pl src/tests/%.pl src-pl/*.pl
+build/socs/tests/%.txt : build/socs/tests/%.pl socs/tests/%.pl src-pl/*.pl
 	eclipseclp -f src-pl/decoding_net5.pl \
 			   -f src-pl/decoding_net5_support.pl \
 			   -f src-pl/test-helpers.pl \
@@ -54,3 +54,23 @@ build/test_report.txt: $(ALL_TEST_OUTPUTS)
 
 test: build/test_report.txt
 	@cat build/test_report.txt
+
+
+####
+#
+#  Rules for the page table generator
+#
+####
+
+build/pt/cpu_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_ptable.c: build/socs/ARMv8_FVP_Minimal.pl
+	mkdir -p build/pt
+	eclipseclp -f src-pl/decoding_net5.pl \
+			   -f src-pl/decoding_net5_support.pl \
+			   -f src-pl/test-helpers.pl \
+			   -f build/socs/ARMv8_FVP_Minimal.pl \
+			   -f src-ptgen/target/armv8/page_table_generator.pl \
+			   -f src-ptgen/generate_page_table.pl \
+			   -e "gen_pt(\"ARMv8_FVP_Minimal\", \"ARMCortexA57x1_Cluster0.CPUDRIVER\" , \"src-ptgen/target/armv8/page_table.c.in \" , \"build/pt/cpu_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_ptable.c \", 0, \"t0sz=16\")."
+
+test_pt: build/pt/cpu_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_ptable.c
+	@echo "TODO: test what's in the C file 8-)"

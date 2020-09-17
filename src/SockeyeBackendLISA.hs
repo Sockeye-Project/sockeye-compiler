@@ -341,7 +341,7 @@ instance LISAGenerator SPAST.Definition where
     generate (SPAST.Maps _ node specs) = (intercalate "\n" (map (\spec -> "self." ++ (generate node) ++ (generate spec) ++ ";") specs))
     generate (SPAST.Converts meta _ _) = error ("Converts not supported: " ++ (show meta))
     generate (SPAST.Overlays meta node (SAST.InternalNodeRef _ target)) = (generate node) ++ " => " ++ (generate target) ++ ";"
-    generate (SPAST.BlockOverlays meta _ _ _) = error ("BlockOverlays not supported: " ++ (show meta))
+    generate (SPAST.ConfOverlays meta _ _ ) = error ("ConfOverlays not supported: " ++ (show meta))
     generate (SPAST.Instantiates meta ref mod args) = error ("Invalid definition statement: " ++ (show meta))
     generate (SPAST.Binds _ node bindings) = intercalate "\n" (map (\binding -> (generate node) ++ (generate binding) ++ ";") bindings)
     generate (SPAST.Forall meta _ _ _) = error ("Forall not supported: " ++ (show meta))

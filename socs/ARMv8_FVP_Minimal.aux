@@ -1,0 +1,100 @@
+{
+    "connections": [
+        {
+            "moduleName": "ARMv8_FVP_Minimal",
+            "source": {
+                "name": "pl011_uart",
+                "port": "serial_out"
+            },
+            "target": {
+                "name": "telnetterminal",
+                "port": "serial"
+            }
+        },
+        {
+            "moduleName": "ARMv8_FVP_Minimal",
+            "source": {
+                "name": "gic",
+                "port": "redistributor_m",
+                "address": "0"
+            },
+            "target": {
+                "name": "ARMCortexA57x1_Cluster0",
+                "port": "gicv3_redistributor_s",
+                "address": "0"
+            }
+        }
+    ],
+    "parameters" : [
+        { "moduleName" : "ARMv8_FVP_Minimal",
+          "component" : "cci400",
+          "name" : "revision",
+          "value" : "\"r0p0\""
+        },
+        { "moduleName" : "ARMv8_FVP_Minimal",
+          "component" : "cci400",
+          "name" : "cache_state_modelled",
+          "value" : "false"
+        },
+        {
+            "moduleName": "ARMv8_FVP_Minimal",
+            "component": "gic",
+            "name": "reg_base",
+            "translation": "reg-base"
+        },
+        {
+            "moduleName": "ARMv8_FVP_Minimal",
+            "component": "gic",
+            "name": "reg_base_per_redistributor",
+            "translation": "reg-base-per-redistributor",
+            "value": "\"0.0.0.0=0x2f100000\""
+        },
+        {
+            "moduleName": "ARMv8_FVP_Minimal",
+            "component": "gic",
+            "name": "GICD_alias",
+            "translation": "GICD-alias"
+        },
+        {
+            "moduleName": "ARMv8_FVP_Minimal",
+            "component": "gic",
+            "name": "gicv2_only",
+            "translation": "gicv2-only"
+        },
+        {
+            "moduleName": "ARMv8_FVP_Minimal",
+            "component": "gic",
+            "name": "SPI_count",
+            "translation": "SPI-count"
+        },
+        {
+            "moduleName": "ARMv8_FVP_Minimal",
+            "component": "gic",
+            "name": "ITS0_base",
+            "translation": "ITS0-base"
+        },
+        {
+            "moduleName": "ARMv8_FVP_Minimal",
+            "component": "gic",
+            "name": "ITS_TRANSLATE64R",
+            "translation": "ITS-TRANSLATE64R"
+        },
+        {
+            "moduleName": "ARMv8_FVP_Minimal",
+            "component": "ARMCortexA57x1_Cluster0",
+            "name": "dcache_state_modelled",
+            "translation": "dcache-state_modelled"
+        },
+        {
+            "moduleName": "ARMv8_FVP_MinimalBarebones",
+            "component": "ARMCortexA57x1_Cluster0",
+            "name": "icache_state_modelled",
+            "translation": "icache-state_modelled"
+        }
+    ],
+    "moduleTranslation" : [
+        { "nameFrom" : "ROMDevice",
+          "nameTo"   : "RAMDevice"
+        }
+    ]
+}

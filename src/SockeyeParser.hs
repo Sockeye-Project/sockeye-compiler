@@ -271,11 +271,9 @@ convertSpec = mapSpec
 
 blockoverlays node = do
     pos <- getPositionMeta
-    reserved "blockoverlays"
+    reserved "confOverlays"
     overlay <- nodeReference
-    reserved "bits"
-    blocksizes <- parens $ commaSep1 natural
-    return $ AST.BlockOverlays pos node overlay blocksizes
+    return $ AST.ConfOverlays pos node overlay 
 
 overlays node = do
     pos <- getPositionMeta

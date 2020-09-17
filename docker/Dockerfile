@@ -9,3 +9,4 @@ RUN mkdir eclipse && \
     ln -s /eclipse/lib/x86_64_linux/eclipse.exe /usr/bin/eclipseclp 
 ENV ECLIPSEDIR=/eclipse
 
+RUN apt-get install libghc-aeson-dev libghc-missingh-dev -y

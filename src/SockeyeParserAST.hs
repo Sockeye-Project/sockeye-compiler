@@ -158,11 +158,10 @@ data Definition
         , node     :: UnqualifiedRef
         , overlays :: NodeReference
         }
-    | BlockOverlays
+    | ConfOverlays
         { defMeta  :: ASTMeta
         , node     :: UnqualifiedRef
         , overlays :: NodeReference
-        , blocksizes :: [Integer]
         }
     | Instantiates
         { defMeta    :: ASTMeta

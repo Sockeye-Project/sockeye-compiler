@@ -1,0 +1,60 @@
+/*
+ * Copyright (c) 2019 ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+component ARMv8_Minimal_Dual
+{
+
+    composition
+    {
+        telnetterminal : TelnetTerminal("start_telnet"=0);
+        pl011_uart : PL011_Uart("out_file"="-");
+        Memory0 : RAMDevice();
+        Memory1 : RAMDevice();
+        Memory2 : RAMDevice();
+        armcortexa53x1ct : ARMCortexA53x1CT(CLUSTER_ID = 0, "GICDISABLE"=false);
+        armcortexa57x1ct : ARMCortexA57x1CT(CLUSTER_ID = 1, "GICDISABLE"=false);
+        Clock100MHz : ClockDivider(mul=100000000);
+        Clock1Hz : MasterClock();
+        BusDecoder0 : PVBusDecoder();
+        BusDecoder1 : PVBusDecoder();
+    }
+    
+    connection
+    {
+        Clock1Hz.clk_out => Clock100MHz.clk_in;
+        Clock100MHz.clk_out => armcortexa53x1ct.clk_in;
+        Clock100MHz.clk_out => armcortexa57x1ct.clk_in;
+        armcortexa53x1ct.pvbus_m0 => BusDecoder0.pvbus_s;
+        armcortexa57x1ct.pvbus_m0 => BusDecoder1.pvbus_s;
+        BusDecoder0.pvbus_m_range[0x00000000..0x0fffffff] => Memory0.pvbus;
+        BusDecoder0.pvbus_m_range[0x40000000..0xffffffff] => Memory1.pvbus;
+        BusDecoder0.pvbus_m_range[0x1C090000..0x1C090fff] => pl011_uart.pvbus;
+
+        BusDecoder1.pvbus_m_range[0x00000000..0x0fffffff] => Memory2.pvbus;
+        BusDecoder1.pvbus_m_range[0x40000000..0xffffffff] => Memory1.pvbus;
+        BusDecoder1.pvbus_m_range[0x1C090000..0x1C090fff] => pl011_uart.pvbus;
+        
+        pl011_uart.serial_out => telnetterminal.serial;
+        Clock100MHz.clk_out => pl011_uart.clk_in_ref;
+	    
+        armcortexa53x1ct.event => armcortexa57x1ct.event;
+    }
+
+    properties
+    {
+        component_type = "System";
+    }
+}
+
+/*
+Execute as: 
+aarch64-linux-gnu-objcopy -O binary ./armv8/sbin/boot_a57_fvp.full ./armv8/sbin/boot_a57_fvp.bin && ./tools/fastmodels/ARM_FastModels/ARMv8_Minimal_Dual/ARMv8_Minimal_Dual_Build/isim_system --data Memory0=./armv8/sbin/boot_a57_fvp.bin@0x0 --data Memory2=./armv8/sbin/boot_a57_fvp.bin@0x0
+
+
+ */

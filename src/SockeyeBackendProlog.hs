@@ -180,13 +180,11 @@ instance PrologGenerator PlDefinition where
         overlaysStr <- generate overlays
         ass <- assert_overlay nodeStr overlaysStr
         return ass
-    generate (PlBlockOverlays _ node overlays blocksize) = do
+    generate (PlConfOverlays _ node overlays) = do
         nodeStr <- generate node
         overlaysStr <- generate overlays
         overlaysStr <- generate overlays
-        blocksizeStrArr <- mapM generate blocksize
-        let blocksizeStr = list blocksizeStrArr
-        ass <- assert_configurable nodeStr blocksizeStr overlaysStr
+        ass <- assert_configurable nodeStr overlaysStr
         return ass
     generate (PlInstantiates _ inst instModule arguments) = do
         instS <- generate inst
@@ -359,11 +357,11 @@ assert_overlay src dst = do
     sOut <- get_next_state_var
     return $ predicate "assert_overlay" [sIn, src, dst, sOut]
 
-assert_configurable ::   String -> String -> String -> SM String
-assert_configurable src bits dst = do
+assert_configurable ::   String -> String -> SM String
+assert_configurable src dst = do
     sIn <- get_state_var
     sOut <- get_next_state_var
-    return $ predicate "assert_configurable" [sIn, src, bits, dst, sOut]
+    return $ predicate "assert_configurable" [sIn, src, dst, sOut]
 
 add_mod ::  String -> String -> [String] -> SM String
 add_mod idname modname args = do

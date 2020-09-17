@@ -322,9 +322,9 @@ gen_def (AST.Overlays m n o) =
     in
         wrap_uqr n gen
 
-gen_def (AST.BlockOverlays m n o sizes) = 
+gen_def (AST.ConfOverlays m n o) = 
     let 
-        gen1 nq oq = return [PlBlockOverlays m nq oq sizes]
+        gen1 nq oq = return [PlConfOverlays m nq oq]
         gen nq = wrap_nr o (gen1 nq)
     in
         wrap_uqr n gen

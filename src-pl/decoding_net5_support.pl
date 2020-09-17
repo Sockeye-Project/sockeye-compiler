@@ -93,6 +93,7 @@ multi_subscript([M | Ms], [I | Is], [V | Vs]) :-
     multi_subscript(Ms,Is,Vs).
     
 :- export assert_translate/4.
+assert_translate(S,region(_, [[]],_),region(_, [[]], _),S).
 assert_translate(S,region(InId, InBlocks,InProp),region(OutId, OutBlocks, OutProp),S) :-
     %printf("at1  InBlocks=%p, OutBlocks=%p\n", [InBlocks, OutBlocks]),
     multi_blocks_align(InBlocks, OutBlocks, InAlBs, OutAlBs),
@@ -130,6 +131,15 @@ state_empty(state([],[],[])).
 init :-
     assert(current_state(null)),
     assert(node_id_next(1)).
+
+decoding_net_load_module(Module) :-
+	init,
+	state_empty(S),
+	append_strings("add_",Module, CTargetS),
+	atom_string(CTarget, CTargetS),
+	call(CTarget, S, [], _), 
+	assert(decoding_net_loaded).
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%%%% multid and nat values

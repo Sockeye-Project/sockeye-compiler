@@ -99,11 +99,10 @@ data PlDefinition
         , node     :: PlQualifiedRef
         , overlays :: PlQualifiedRef
         }
-    | PlBlockOverlays
+    | PlConfOverlays
         { defMeta  :: ASTMeta
         , node     :: PlQualifiedRef
         , overlays :: PlQualifiedRef
-        , blocksizes :: [Integer]
         }
     | PlInstantiates
         { defMeta    :: ASTMeta

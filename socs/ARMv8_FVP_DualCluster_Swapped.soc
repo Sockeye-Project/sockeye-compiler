@@ -1,0 +1,273 @@
+extern module MasterClock {
+    output clock (0) clk_out
+}
+
+extern module ClockDivider((0 to 0xfffffffff) mul) {
+    input clock (0) clk_in
+    output clock (0) clk_out
+}
+
+extern module TelnetTerminal {
+    input memory (0 to 0x1fff) serial_in
+}
+
+extern module CCI400(
+    (0x0000 to 0xffff) broadcastcachemain,
+    (0x0000 to 0xffff) barrierterminate,
+    (0x0000 to 0xffff) bufferableoverride,
+    (0x0000 to 0xffff) periphbase,
+    (0x0000 to 0xffff) acchannelen,
+    (0x0000 to 0xffff) revision,
+    (0x0000 to 0xffff) cache_state_modelled
+) {
+    input memory (0x0 to 0xffffffff) pvbus_s_ace_3
+    output memory (0x0 to 0xffffffff) pvbus_m
+
+    pvbus_s_ace_3 maps [
+        (0x00000000 to 0xffffffff) to pvbus_m at (0)
+    ]
+}
+
+
+extern module PL011_Uart {
+    input clock (0) clk_in_ref
+    input memory (0 to 0x1fff) pvbus
+
+    pvbus accepts [
+        (0x00000000 to 0x1fff) (devreg)
+    ]
+}
+
+
+extern module RAMDevice((0 to 0x40000000) size) {
+    input memory (0x00000000 to 0x3fffffff) pvbus
+
+    pvbus accepts [
+       (0x00000000 to 0x3fffffff) (mem)
+    ]
+}
+
+extern module ROMDevice((0 to 0x40000000) size) {
+    input memory (0x00000000 to 0x3fffffff) pvbus
+
+    pvbus accepts [
+       (0x00000000 to 0x3fffffff) (bootrom)
+    ]
+}
+
+
+extern module GICv3IRI_Filter (
+        (0 bits 64) reg_base,
+        (0 bits 64) reg_base_per_redistributor,
+        (0 bits 64) GICD_alias,
+        (0 bits 64) gicv2_only,
+        (0 bits 64) SPI_count,
+        (0 bits 64) ITS0_base,
+        (0 bits 64) ITS_TRANSLATE64R)
+ {
+    input intr (0) ppi_in_0[0 to 15]
+    input memory (0 bits 64) pvbus_s
+
+    /* TODO Replace this with reg_base argument */
+    pvbus_s maps  [
+       (0x00000000 to 0x2effffff) to pvbus_filtermiss_m at (0 to 0x2effffff);
+       (0x2f000000 to 0x2f0fffff) to distributor at (0 to 0x000fffff);
+       (0x2f100000 to 0x2f1fffff) to redistributor at (0 to 0x000fffff);
+       (0x2f200000 to 0xffffffffffff) to pvbus_filtermiss_m at (0x2f200000 to 0xffffffffffff)
+    ]
+
+
+    memory (0 bits 64) distributor
+    distributor accepts [
+       (0 to 0x000fffff) (devreg)
+    ]
+    memory (0 bits 64) redistributor
+    redistributor accepts [
+       (0 to 0x000fffff) (devreg)
+    ]
+
+
+    output memory (0 bits 64) pvbus_filtermiss_m
+    output memory (0 bits 64) pvbus_m
+    output intr (0) redistributor_m
+}
+
+extern module ARMCortexA57x1CT((0x000 to 0xfff) CLUSTER_ID, (0x000 to 0xfff) GICDISABLE) {
+    input clock (0) clk_in
+    //input intr (0) gicv3_redistributor_s
+
+    module_tag cluster (CLUSTER_ID)
+
+    // The Virtual Address node in which the bootdriver executes
+    memory (0x0 to 0xffffffff) BOOT
+    BOOT maps [
+        (0x00000000 to 0xffffffff) to pvbus_m0 at (0)
+    ]
+
+    // The virtual address node in which the cpudriver executes
+    memory (0x0 to 0xffffffffffff) CPUDRIVER
+    CPUDRIVER maps [
+        (0xffff000000000000 to 0xffffffffffffffff) to pvbus_m0 at (0)
+    ]
+
+    output memory (0 to 0xffffffff) pvbus_m0
+    output intr (0) CNTPNSIRQ
+}
+
+
+
+module ARMv8_FVP_DualCluster_Swapped {
+
+    /*************************************************************************
+     * Composition
+     ************************************************************************/
+
+
+    /* telnetterminal : TelnetTerminal("start_telnet"=0); */
+    instance telnetterminal_c0 of TelnetTerminal
+    instance telnetterminal_c1 of TelnetTerminal
+    telnetterminal_c0 instantiates TelnetTerminal
+    telnetterminal_c1 instantiates TelnetTerminal
+
+
+    /* pl011_uart_c0 : PL011_Uart("out_file"="-"); */
+    instance pl011_uart_c0 of PL011_Uart
+    pl011_uart_c0 instantiates PL011_Uart
+    instance pl011_uart_c1 of PL011_Uart
+    pl011_uart_c1 instantiates PL011_Uart
+
+    /* DRAM : RAMDevice(); */
+    instance DRAM_0 of RAMDevice
+    DRAM_0 instantiates RAMDevice(0x40000000)
+
+    instance DRAM_1 of RAMDevice
+    DRAM_1 instantiates RAMDevice(0x40000000)
+
+    /* Boot ROM */
+    instance ROM of ROMDevice
+    ROM instantiates ROMDevice(0x40000000)
+
+    /* ARMCortexA57x1_Cluster0 : ARMCortexA57x1CT(CLUSTER_ID = 0); */
+    instance ARMCortexA57x1_Cluster0 of ARMCortexA57x1CT
+    ARMCortexA57x1_Cluster0 instantiates ARMCortexA57x1CT(0,0)
+
+    instance ARMCortexA57x1_Cluster1 of ARMCortexA57x1CT
+    ARMCortexA57x1_Cluster1 instantiates ARMCortexA57x1CT(1,0)
+
+    /* cci400 : CCI400(...); */
+    instance cci400_C0 of CCI400
+    cci400_C0 instantiates CCI400(0x0,0x7,0x0,0x2C000000,0x8, 0x0, 0x0)
+    cci400_C0 binds [
+        pvbus_m to gic_C0.pvbus_s
+    ]
+
+    instance cci400_C1 of CCI400
+    cci400_C1 instantiates CCI400(0x0,0x7,0x0,0x2C000000,0x8, 0x0, 0x0)
+    cci400_C1 binds [
+        pvbus_m to gic_C1.pvbus_s
+    ]
+
+    /* GIC */
+    instance gic_C0 of GICv3IRI_Filter
+    gic_C0 instantiates GICv3IRI_Filter(0x2f000000,0,0,0,224,0x2f020000,1)
+    gic_C0 binds [
+        pvbus_m to cci400_C0.pvbus_s_ace_lite_plus_dvm_2;
+        pvbus_filtermiss_m to BusDecoder_C0
+    ]
+    instance gic_C1 of GICv3IRI_Filter
+    gic_C1 instantiates GICv3IRI_Filter(0x2f000000,0,0,0,224,0x2f020000,1)
+    gic_C1 binds [
+        pvbus_m to cci400_C1.pvbus_s_ace_lite_plus_dvm_2;
+        pvbus_filtermiss_m to BusDecoder_C1
+    ]
+
+    /* Clock100MHz : ClockDivider(mul=100000000); */
+    instance Clock100MHz of ClockDivider
+    Clock100MHz instantiates ClockDivider(100000000)
+
+    /* Clock1Hz : MasterClock(); */
+    instance Clock1Hz of MasterClock
+    Clock1Hz instantiates MasterClock
+
+    /* BusDecoder : PVBusDecoder(); */
+
+    /* Local Nodes */
+    clock (0) MASTER_CLOCK_BUS
+    clock (0) CLK100MHZ_BUS
+    clock (0) CLK1HZ_BUS
+
+
+
+
+    /*************************************************************************
+     * Connection
+     ************************************************************************/
+
+    /* Clock1Hz.clk_out => Clock100MHz.clk_in; */
+    Clock1Hz binds [clk_out to CLK1HZ_BUS]
+    CLK1HZ_BUS maps [
+        (*) to Clock100MHz.clk_in at (*)
+    ]
+
+
+    /* Clock100MHz.clk_out => ARMCortexA57x1_Cluster0.clk_in; */
+    /* Clock100MHz.clk_out => pl011_uart_c0.clk_in_ref; */
+
+    Clock100MHz binds [clk_out to CLK100MHZ_BUS]
+    CLK100MHZ_BUS maps [
+        (*) to ARMCortexA57x1_Cluster0.clk_in at (*);
+        (*) to ARMCortexA57x1_Cluster1.clk_in at (*);
+        (*) to pl011_uart_c0.clk_in_ref at (*);
+        (*) to pl011_uart_c1.clk_in_ref at (*)
+    ]
+
+    intr (0) PPI_C0[0 to 15]
+    intr (0) PPI_C1[0 to 15]
+
+
+    /* ARMCortexA57x1_Cluster0.pvbus_m0 => BusDecoder.pvbus_s; */
+    ARMCortexA57x1_Cluster0 binds [
+        pvbus_m0 to cci400_C0.pvbus_s_ace_3;
+        CNTPNSIRQ to PPI_C0
+    ]
+
+    ARMCortexA57x1_Cluster1 binds [
+        pvbus_m0 to cci400_C1.pvbus_s_ace_3;
+        CNTPNSIRQ to PPI_C1
+    ]
+
+    PPI_C0[0] maps [
+        (*) to gic_C0.ppi_in_0[14] at (*)
+    ]
+    PPI_C1[0] maps [
+        (*) to gic_C1.ppi_in_0[14] at (*)
+    ]
+
+    cci400_C1 binds [
+        pvbus_m to gic_C1.pvbus_s
+    ]
+
+    cci400_C0 binds [
+        pvbus_m to gic_C0.pvbus_s
+    ]
+
+
+    memory (0x0 to  0xffffffff)  BusDecoder_C0
+    BusDecoder_C0 maps [
+        (0x00000000 to 0x0fffffff) to ROM.pvbus at  (0x00000000 to 0x0fffffff);
+        (0x1C000000 to 0x1C001fff) to pl011_uart_c0.pvbus at (0x0000 to 0x1fff);
+        (0x40000000 to 0x7fffffff) to DRAM_0.pvbus at (0x00000000 to 0x3fffffff);
+        (0x80000000 to 0xcfffffff) to DRAM_1.pvbus at (0x00000000 to 0x3fffffff)
+    ]
+
+    memory (0x0 to  0xffffffff) BusDecoder_C1
+    BusDecoder_C1 maps [
+        (0x00000000 to 0x0fffffff) to ROM.pvbus at  (0x00000000 to 0x0fffffff);
+        (0x1C000000 to 0x1C001fff) to pl011_uart_c1.pvbus at (0x0000 to 0x1fff);
+        (0x40000000 to 0x7fffffff) to DRAM_1.pvbus at (0x00000000 to 0x3fffffff);
+        (0x80000000 to 0xcfffffff) to DRAM_0.pvbus at (0x00000000 to 0x3fffffff)
+    ]
+
+
+    /* pl011_uart_c0.serial_out => telnetterminal.serial; */
+}

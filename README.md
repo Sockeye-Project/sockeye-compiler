@@ -2,6 +2,8 @@
 This is the compiler for the Sockeye language.
 Currently there are two versions.
 The current version is in `src` the deprecated version 1 is in `src/v1`.
+In `socs` are all our sockeye definitions.
+`src-pl` contains the Prolog tools that use the sockeye compiler output.
 
 
 ## Build

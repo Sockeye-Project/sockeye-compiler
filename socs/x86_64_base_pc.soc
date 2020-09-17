@@ -1,0 +1,62 @@
+
+
+extern module RAMDevice((0 to 0x1000000000) size) {
+    input memory (0x00000000 to 0xfffffffff) pvbus
+
+    pvbus accepts [
+       (0x00000000 to 0xfffffffff) (mem)
+    ]
+}
+
+extern module X86_64_Core((0x000 to 0xfff) APICID) {
+
+    module_tag cluster (APICID)
+
+    // The Virtual Address node in which the bootdriver executes
+    memory (0x0 to 0xffffffff) BOOT
+    BOOT maps [
+        (0x00000000 to 0xffffffff) to pvbus_m0 at (0)
+    ]
+
+    // The virtual address node in which the cpudriver executes
+    memory (0x0 to 0xffffffffffff) CPUDRIVER
+    CPUDRIVER maps [
+        (0xfffffe0000000000 to 0xffffffffffffffff) to pvbus_m0 at (0)
+    ]
+
+    output memory (0 to 0xffffffffffff) pvbus_m0
+}
+
+
+extern module LAPIC {
+    input memory (0 to 0x1fff) pvbus
+
+    pvbus accepts [
+        (0x00000000 to 0x1fff) (devreg)
+    ]
+}
+
+module X86_64_PC {
+
+    instance DRAM of RAMDevice
+    DRAM instantiates RAMDevice(0x1000000000)
+
+    instance lapic of LAPIC
+    lapic instantiates LAPIC
+
+    instance X86_64_Core_0 of X86_64_Core
+    X86_64_Core_0 instantiates X86_64_Core(0)
+
+    memory (0x0 to  0xfffffffffff)  BusDecoder
+    BusDecoder maps [
+        (0x00000000 to 0xfedfffff) to DRAM.pvbus at  (0x00000000 to 0xfedfffff);
+        (0xfee00000 to 0xfee00fff) to lapic.pvbus at (0x0000 to 0xfff);
+        (0xfee01000 to 0x7fffffff) to DRAM.pvbus at (0xfee01000 to 0xfffffffff)
+    ]
+
+    X86_64_Core_0 binds [
+        pvbus_m0 to BusDecoder
+    ]
+}
+
+

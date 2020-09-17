@@ -1,0 +1,43 @@
+/*
+/*
+ * Copyright (c) 2019 ETH Zurich.
+ * All rights reserved.
+ *
+ * This file is distributed under the terms in the attached LICENSE file.
+ * If you do not find this file, copies can be found by writing to:
+ * ETH Zurich D-INFK, Universitaetstrasse 6, CH-8092 Zurich. Attn: Systems Group.
+ */
+
+component ARMv8_Minimal_A53x1
+{
+
+    composition
+    {
+        telnetterminal : TelnetTerminal("start_telnet"=0);
+        pl011_uart : PL011_Uart("out_file"="-");
+        DRAM : RAMDevice();
+        armcortexa57x1ct : ARMCortexA57x1CT(CLUSTER_ID = 1, "GICDISABLE"=false);
+        Clock100MHz : ClockDivider(mul=100000000);
+        Clock1Hz : MasterClock();
+        BusDecoder : PVBusDecoder();
+    }
+    
+    connection
+    {
+        Clock1Hz.clk_out => Clock100MHz.clk_in;
+        Clock100MHz.clk_out => armcortexa57x1ct.clk_in;
+        armcortexa57x1ct.pvbus_m0 => BusDecoder.pvbus_s;
+        BusDecoder.pvbus_m_range[0x00000000..0x0fffffff] => DRAM.pvbus;
+        BusDecoder.pvbus_m_range[0x40000000..0xffffffff] => DRAM.pvbus;
+        BusDecoder.pvbus_m_range[0x1C090000..0x1C090fff] => pl011_uart.pvbus;
+        
+        pl011_uart.serial_out => telnetterminal.serial;
+        Clock100MHz.clk_out => pl011_uart.clk_in_ref;
+    }
+
+    properties
+    {
+        component_type = "System";
+    }
+    
+}

@@ -1,0 +1,211 @@
+{
+    "connections": [
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "source": {
+                "name": "pl011_uart_c0",
+                "port": "serial_out"
+            },
+            "target": {
+                "name": "telnetterminal_c0",
+                "port": "serial"
+            }
+        },
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "source": {
+                "name": "pl011_uart_c1",
+                "port": "serial_out"
+            },
+            "target": {
+                "name": "telnetterminal_c1",
+                "port": "serial"
+            }
+        },        
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "source": {
+                "name": "gic_C0",
+                "port": "redistributor_m",
+                "address": "0"
+            },
+            "target": {
+                "name": "ARMCortexA57x1_Cluster0",
+                "port": "gicv3_redistributor_s",
+                "address": "0"
+            }
+        },
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "source": {
+                "name": "gic_C1",
+                "port": "redistributor_m",
+                "address": "0"
+            },
+            "target": {
+                "name": "ARMCortexA57x1_Cluster1",
+                "port": "gicv3_redistributor_s",
+                "address": "0"
+            }
+        },        
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "source": {
+                "name": "ARMCortexA57x1_Cluster0",
+                "port": "event"
+            },
+            "target": {
+                "name": "ARMCortexA57x1_Cluster1",
+                "port": "event"
+            }
+        },
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "source": {
+                "name": "ARMCortexA57x1_Cluster1",
+                "port": "event"
+            },
+            "target": {
+                "name": "ARMCortexA57x1_Cluster0",
+                "port": "event"
+            }
+        }  
+    ],
+    "parameters" : [
+        { "moduleName" : "ARMv8_FVP_DualCluster_Swapped",
+          "component" : "cci400_C0",
+          "name" : "revision",
+          "value" : "\"r0p0\""
+        },
+        { "moduleName" : "ARMv8_FVP_DualCluster_Swapped",
+          "component" : "cci400_C1",
+          "name" : "revision",
+          "value" : "\"r0p0\""
+        },
+        { "moduleName" : "ARMv8_FVP_DualCluster_Swapped",
+          "component" : "cci400_C0",
+          "name" : "cache_state_modelled",
+          "value" : "false"
+        },
+        { "moduleName" : "ARMv8_FVP_DualCluster_Swapped",
+          "component" : "cci400",
+          "name" : "cache_state_modelled",
+          "value" : "false"
+        },
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "gic_C0",
+            "name": "reg_base",
+            "translation": "reg-base"
+        },
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "gic_C1",
+            "name": "reg_base",
+            "translation": "reg-base"
+        },        
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "gic_C0",
+            "name": "reg_base_per_redistributor",
+            "translation": "reg-base-per-redistributor",
+            "value": "\"0.0.0.0=0x2f100000\""
+        },
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "gic_C1",
+            "name": "reg_base_per_redistributor",
+            "translation": "reg-base-per-redistributor",
+            "value": "\"0.0.0.0=0x2f100000\""
+        },        
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "gic_C0",
+            "name": "GICD_alias",
+            "translation": "GICD-alias"
+        },
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "gic_C1",
+            "name": "GICD_alias",
+            "translation": "GICD-alias"
+        },        
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "gic_C0",
+            "name": "gicv2_only",
+            "translation": "gicv2-only"
+        },
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "gic_C1",
+            "name": "gicv2_only",
+            "translation": "gicv2-only"
+        },        
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "gic_C0",
+            "name": "SPI_count",
+            "translation": "SPI-count"
+        },
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "gic_C1",
+            "name": "SPI_count",
+            "translation": "SPI-count"
+        },        
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "gic_C0",
+            "name": "ITS0_base",
+            "translation": "ITS0-base"
+        },
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "gic_C1",
+            "name": "ITS0_base",
+            "translation": "ITS0-base"
+        },        
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "gic_C0",
+            "name": "ITS_TRANSLATE64R",
+            "translation": "ITS-TRANSLATE64R"
+        },
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "gic_C1",
+            "name": "ITS_TRANSLATE64R",
+            "translation": "ITS-TRANSLATE64R"
+        },        
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "ARMCortexA57x1_Cluster0",
+            "name": "dcache_state_modelled",
+            "translation": "dcache-state_modelled"
+        },
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "ARMCortexA57x1_Cluster0",
+            "name": "icache_state_modelled",
+            "translation": "icache-state_modelled"
+        },
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "ARMCortexA57x1_Cluster1",
+            "name": "dcache_state_modelled",
+            "translation": "dcache-state_modelled"
+        },
+        {
+            "moduleName": "ARMv8_FVP_DualCluster_Swapped",
+            "component": "ARMCortexA57x1_Cluster1",
+            "name": "icache_state_modelled",
+            "translation": "icache-state_modelled"
+        }
+    ],
+    "moduleTranslation" : [
+        { "nameFrom" : "ROMDevice",
+          "nameTo"   : "RAMDevice"
+        }
+    ]
+}
