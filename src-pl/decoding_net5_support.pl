@@ -95,6 +95,8 @@ multi_subscript([M | Ms], [I | Is], [V | Vs]) :-
 :- export assert_translate/4.
 assert_translate(S,region(_, [[]],_),region(_, [[]], _),S).
 assert_translate(S,region(InId, InBlocks,InProp),region(OutId, OutBlocks, OutProp),S) :-
+    node_enum(InId, _),
+    node_enum(OutId, _),
     %printf("at1  InBlocks=%p, OutBlocks=%p\n", [InBlocks, OutBlocks]),
     multi_blocks_align(InBlocks, OutBlocks, InAlBs, OutAlBs),
     %printf("at2  InAlBs=%p, OutAlBs=%p\n", [InAlBs, OutAlBs]),
@@ -111,9 +113,14 @@ assert_translate(S,region(InId, InBlocks,InProp),region(OutId, OutBlocks, OutPro
     ).
 
 :- export assert_overlay/4.
-assert_overlay(S,A,B,S) :- assert(overlay(A,B)).
+assert_overlay(S,A,B,S) :-
+    node_enum(A, _),
+    node_enum(B, _),
+    assert(overlay(A,B)).
+
 :- export assert_accept/3.
 assert_accept(S,region(Id, Bs, Prop),S) :-
+    node_enum(Id, _),
     (foreach(B, Bs), param(Id, Prop)
         do
             assert(accept(region(Id,B,Prop)))
@@ -245,6 +252,7 @@ listing_term(S) :- write("    "), write(S), writeln(",").
 
 :- export decoding_net_listing/0.
 decoding_net_listing :-
+    findall(t(A, B), ( node_id_node_enum(A,B), listing_term(node_id_node_enum(A,B) )), _),
     findall(t(A, B), ( translate(A,B), listing_term(translate(A,B) )), _),
     findall(t(A, B), ( overlay(A,B), listing_term(overlay(A,B) )), _),
     findall(t(A, B), ( accept(A), listing_term(accept(A) )), _).

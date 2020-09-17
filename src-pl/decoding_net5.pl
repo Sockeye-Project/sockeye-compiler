@@ -1,5 +1,8 @@
+% Calculate the intersection of A and B and put it into I
+% The choice of the properties of B is a arbitrary, but we currently rely
+% on that behavior.
 reg_intersection(A, B, I) :-
-    A = region(N, [block(ABase, ALimit)],AProp),
+    A = region(N, [block(ABase, ALimit)],_),
     B = region(N, [block(BBase, BLimit)],BProp),
     % Case 4: B contained entirely in A.
     (((ABase =< BBase, BLimit =< ALimit) -> I = region(N, [block(BBase, BLimit)],BProp)) ;

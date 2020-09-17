@@ -74,3 +74,24 @@ build/pt/cpu_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_ptable.c: build/socs/ARMv
 
 test_pt: build/pt/cpu_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_ptable.c
 	@echo "TODO: test what's in the C file 8-)"
+
+####
+#
+#  Rules for the bootinfo generation
+#
+####
+
+build/bootinfo/boot_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_boot_consts.c: build/socs/ARMv8_FVP_Minimal.pl
+	mkdir -p build/bootinfo
+	eclipseclp -f src-pl/decoding_net5.pl \
+			   -f src-pl/decoding_net5_support.pl \
+			   -f src-pl/test-helpers.pl \
+			   -f build/socs/ARMv8_FVP_Minimal.pl \
+			   -f src-ptgen/target/armv8/page_table_generator.pl \
+			   -f src-ptgen/generate_page_table.pl \
+			   -e "gen_bootinfo(\"ARMv8_FVP_Minimal\", \"ARMCortexA57x1_Cluster0.BOOT\" , \"build/bootinfo/boot_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_boot_consts.c \" )."
+
+	
+
+test_bootinfo: build/bootinfo/boot_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_boot_consts.c
+	@echo "TODO: Test the output file: $<"

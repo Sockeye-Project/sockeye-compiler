@@ -27,8 +27,8 @@ pprint(map(VAddr, Size, PAddr, Label, Prop)) :-
     node_str(Label,LabelStr),
     printf(" [0x%16rULL..0x%16rULL] -> 0x%16rULL     %p,%p\n",
         [VAddr, EndAddr, PAddr,LabelStr, Prop]).
-pprint(region(Id, block(Base,Limit), Prop)) :-
-    printf(" region(%p, block(0x%16r,0x%16r), %p)\n",
+pprint(region(Id, [block(Base,Limit)], Prop)) :-
+    printf(" region(%p, [block(0x%16r,0x%16r)], %p)\n",
         [Id, Base, Limit, Prop]).
 pprint((A,B)) :-
     write("<"),
@@ -90,7 +90,7 @@ gen_pt(ModuleStr, InNodeStr, TemplateFile, OutFile, PTBase, TargetArg) :-
 %% BootInfo %%
 %%%%%%%%%%%%%%
 
-kernel_region_i(region(Id, block(0,_), true)) :-
+kernel_region_i(region(Id, [block(0,_)], true)) :-
     (node_find_fuzzy("DRAM", Id) ; node_find_fuzzy("DRAM_0", Id)).
 kernel_region(R) :-
     kernel_region_i(Ri), !, R = Ri.
@@ -113,30 +113,30 @@ uart(R) :-
 
 boot_uart(Node, R) :-
     % Pick uart that is visible from Node
-    uart(R),
-    decodes_rev(R, _, region(Node, _, _)).
+    uart(R).
+    %decodes_rev(R, _, region(Node, _, _)).
 
 gen_bootinfo(ModuleStr, BootVNodeStr, OutFile) :-
     printf("=== Generating Bootinfo %p Module=%s, ===\n", [OutFile, ModuleStr]),
     decoding_net_load_module(ModuleStr),
     str_node(BootVNodeStr, BootVNode),
-    translate(region(BootVNode,_,_), name(BootPNode,_,_)),
+    translate(region(BootVNode,_,_), region(BootPNode,_,_)),
     printf("Boot Virtual Node = %p\n", [BootVNode]),
     printf("Boot Physical Node = %p\n", [BootPNode]),
     (boot_uart(BootVNode, UARTRegion);throw("Boot UART Node not found")),
     printf("Boot UART = ", []), pprint(UARTRegion),
     kernel_region(KRegion),
-    KRegion = region(_,block(KBase,KLimit), _),
+    KRegion = region(_,[block(KBase,KLimit)], _),
     KLimit is KBase + (1024*1024), % TODO FIGURE OUT SIZE
     printf("Boot Kernel Load Region = ", []), pprint(KRegion),
     
-    UARTVRegion = region(BootVNode, block(UARTVBase,_), _),
+    UARTVRegion = region(BootVNode, [block(UARTVBase,_)], _),
     decodes_rev(UARTRegion, _, UARTVRegion),
     printf("UARTVBase = %p\n", UARTVBase),
-    UARTPRegion = region(BootPNode, block(UARTPBase,_), _),
+    UARTPRegion = region(BootPNode, [block(UARTPBase,_)], _),
     decodes_rev(UARTRegion, _, UARTPRegion),
 
-    KIn = region(BootVNode, block(ImageDest,_), _),
+    KIn = region(BootVNode, [block(ImageDest,_)], _),
     decodes_rev(KRegion, _, KIn),
 
     % the boot driver executes at address 0 -> TODO: pass as arguments ?
