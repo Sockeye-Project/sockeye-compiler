@@ -52,3 +52,11 @@ git checkout master
 git merge TOBEMERGED
 ```
 
+## TODO / Wishlist
+
+* Any sorts of checks, typechecks, node exists checks,
+* warning of translates to non equal node size. Might be tricky actually, because variables, which are not known at compile time.
+* Include files
+* Bit patterns [syntax proposal here](https://wiki.netos.ethz.ch/BarrelFish/DesignNotes/Sockeye/Sockeye2019)
+* Generic C backend. Replace custom generation for in kernel BF/MAS code. 
+* Expressing configuration options (memory translation AND interrupt controllers please)
