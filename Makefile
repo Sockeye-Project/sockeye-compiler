@@ -14,7 +14,7 @@
 GHC=ghc
 ALL_TEST_OUTPUTS = $(patsubst socs/tests/%.soc,build/socs/tests/%.txt,$(wildcard socs/tests/*.soc))
 
-.PHONY: sockeye sockeye1 clean
+.PHONY: sockeye sockeye1 clean test_colibri
 
 bin/sockeye sockeye: src/*.hs
 	mkdir -p build && mkdir -p bin
@@ -55,6 +55,19 @@ build/test_report.txt: $(ALL_TEST_OUTPUTS)
 test: build/test_report.txt
 	@cat build/test_report.txt
 
+####
+#
+#  Colibri Test
+#
+####
+
+test_colibri : build/socs/colibri.pl
+	eclipseclp -f src-pl/decoding_net5.pl \
+			   -f src-pl/decoding_net5_support.pl \
+			   -f src-pl/test-helpers.pl \
+			   -f build/socs/colibri.pl \
+			   -f src-pl/test-colibri.pl \
+			   -e "run_test."
 
 ####
 #
