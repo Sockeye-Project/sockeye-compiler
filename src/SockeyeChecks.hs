@@ -16,9 +16,10 @@
 module SockeyeChecks where
 
 import Control.Monad.Writer
-import Data.List (sortBy)
+    ( Writer, runWriter, MonadWriter(tell) )
+import Data.List ( sortBy )
 
-import SockeyeASTMeta
+import SockeyeASTMeta ( ASTMeta )
 
 class CheckFailure a where
     errorLines :: a -> [String]

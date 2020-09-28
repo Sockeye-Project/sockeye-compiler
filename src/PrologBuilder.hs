@@ -16,12 +16,28 @@
 module PrologBuilder ( build ) where
 
 import qualified Data.Map as Map
-import Control.Exception (throw, Exception)
+import Control.Exception ( throw, Exception )
 import Control.Monad.State.Strict
+    ( MonadState(get), State, modify, runState )
 
 import qualified SockeyeAST as SAST
 import qualified SockeyeParserAST as AST
-import PrologAST 
+import PrologAST
+    ( PlNaturalExpr(BitLimit, Literal, SockeyeVariable, Multiplication,
+                    Addition, Slice, Subtraction, Concat),
+      PlRegionSpec(..),
+      PlQualifiedRef(..),
+      PlImmediate(PlImmediateVar, PlImmediateStr),
+      PlDefinition(PlConfOverlays, PlOverlays, PlInstantiates,
+                   PlTranslate, PlAccepts, PlModuleTag, PlForall),
+      PlBody(PlBody),
+      PlExtraPred(PlValues, PlMultiDValues, PlIsPred),
+      PlMultiDSet(..),
+      PlNaturalSet(..),
+      PlNaturalRange(PlNaturalRange),
+      PlVar(..),
+      PlModule(..),
+      PlFile(..) ) 
 
 {- Exceptions -}
 

@@ -18,10 +18,10 @@ module SockeyeSymbolTable
     , module SockeyeAST
     ) where
 
-import Data.Set (Set)
-import Data.Map (Map)
+import Data.Set ( Set )
+import Data.Map ( Map )
 
-import SockeyeASTMeta
+import SockeyeASTMeta ( ASTMeta, MetaAST(..) )
 
 import SockeyeAST
     ( NaturalSet(NaturalSet)

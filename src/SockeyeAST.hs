@@ -15,7 +15,7 @@
 
 module SockeyeAST where
 
-import SockeyeASTMeta
+import SockeyeASTMeta ( ASTMeta, MetaAST(..) )
 
 {- This transformation should do +/- linking for modules:
   - Resolve multiple files

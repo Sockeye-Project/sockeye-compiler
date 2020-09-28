@@ -29,10 +29,10 @@ module SockeyeBackendPrologMultiDim
 ( compile, compileDirect ) where
 
 import qualified Data.Map as Map
-import Data.Char
-import Data.List
-import Text.Printf
-import Control.Exception (throw, Exception)
+import Data.Char ( isAlphaNum, isLower )
+import Data.List ( intercalate )
+import Text.Printf ( printf )
+import Control.Exception ( throw, Exception )
 
 import qualified SockeyeSymbolTable as ST
 import qualified SockeyeAST as SAST

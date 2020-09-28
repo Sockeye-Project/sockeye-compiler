@@ -19,17 +19,23 @@
 module SockeyeSymbolTableBuilder
     (buildSymbolTable) where
 
-import Data.List (intercalate)
+import Data.List ( intercalate )
 
-import Data.Map (Map)
+import Data.Map ( Map )
 import qualified Data.Map as Map
 
-import Data.Set (Set)
+import Data.Set ( Set )
 import qualified Data.Set as Set
 
 import SockeyeChecks
+    ( failCheck,
+      foldChecks,
+      runChecks,
+      CheckFailure(..),
+      Checks,
+      FailedChecks )
 
-import SockeyeASTMeta
+import SockeyeASTMeta ( ASTMeta, MetaAST(..) )
 import qualified SockeyeParserAST as AST
 import qualified SockeyeSymbolTable as ST
 

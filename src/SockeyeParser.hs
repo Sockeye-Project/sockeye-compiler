@@ -16,14 +16,31 @@
 module SockeyeParser
 ( parseSockeye ) where
 
-import System.FilePath
+import System.FilePath ( (<.>) )
 
 import Text.Parsec
+    ( alphaNum,
+      char,
+      letter,
+      choice,
+      eof,
+      many1,
+      option,
+      optionMaybe,
+      (<?>),
+      (<|>),
+      getPosition,
+      many,
+      parse,
+      ParseError )
 import Text.Parsec.Expr
+    ( buildExpressionParser,
+      Assoc(AssocLeft),
+      Operator(Prefix, Infix, Postfix) )
 import qualified Text.Parsec.Token as P
-import Text.Parsec.Language (emptyDef)
+import Text.Parsec.Language ( emptyDef )
 
-import SockeyeASTMeta
+import SockeyeASTMeta ( ASTMeta(ParserMeta) )
 import qualified SockeyeParserAST as AST
 
 {- Parser main function -}

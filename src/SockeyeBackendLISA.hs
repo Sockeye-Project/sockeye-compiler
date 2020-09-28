@@ -6,15 +6,15 @@ module SockeyeBackendLISA
 where
 
 import qualified Data.Map as Map
-import Data.List
-import Data.Maybe
-import Data.Ord
-import Data.Aeson
+import Data.List ( find, intercalate, nub, partition, sortBy )
+import Data.Maybe ( fromJust, isJust )
+--import Data.Ord
+import Data.Aeson ( FromJSON )
 import Control.Exception (throw, Exception)
-import Debug.Trace
-import GHC.Generics
-import Text.Read
-import Numeric (showHex, showIntAtBase)
+--import Debug.Trace
+import GHC.Generics ( Generic )
+import Text.Read ( readMaybe )
+import Numeric ( showHex, showIntAtBase )
 
 import qualified SockeyeSymbolTable as SST
 import qualified SockeyeAST as SAST

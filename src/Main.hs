@@ -13,32 +13,38 @@
 
 module Main where
 
-import Control.Monad
+import Control.Monad ( foldM )
 
-import Data.List (intercalate)
+import Data.List ( intercalate )
 import qualified Data.Map as Map
 
 import System.Console.GetOpt
-import System.Directory
-import System.Exit
-import System.Environment
+    ( ArgOrder(Permute),
+      OptDescr(..),
+      getOpt,
+      usageInfo,
+      ArgDescr(ReqArg, NoArg) )
+import System.Directory ( doesFileExist, findFile )
+import System.Exit ( ExitCode(..), exitWith )
+import System.Environment ( getArgs, getProgName )
 import System.FilePath
-import System.IO
-import Debug.Trace
+    ( (</>), normalise, takeDirectory, takeFileName )
+import System.IO ( stderr, hPutStr, hPutStrLn )
+--import Debug.Trace
 
-{- import Text.Pretty.Simple (pPrint, pShowNoColor) -}
-import Data.Text.Lazy (unpack)
-import Data.Aeson (eitherDecodeStrict, FromJSON)
+--import Text.Pretty.Simple (pPrint, pShowNoColor)
+import Data.Text.Lazy ( unpack )
+import Data.Aeson ( eitherDecodeStrict, FromJSON )
 import qualified Data.ByteString as B
-import Data.String.Utils
+import Data.String.Utils ( replace )
 
 import qualified SockeyeParserAST as ParseAST
 import qualified SockeyeSymbolTable as SymTable
 import qualified SockeyeAST as AST
 
-import SockeyeParser
-import SockeyeSymbolTableBuilder
-import SockeyeChecker
+import SockeyeParser ( parseSockeye )
+import SockeyeSymbolTableBuilder ( buildSymbolTable )
+import SockeyeChecker ( checkSockeye )
 
 import qualified SockeyeBackendProlog as PrologBackend
 import qualified PrologBuilder as PrologBuilder

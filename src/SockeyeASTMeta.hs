@@ -15,8 +15,9 @@
 
 module SockeyeASTMeta where
 
-import Data.List (intercalate)
+import Data.List ( intercalate )
 import Text.Parsec.Pos
+    ( SourcePos, sourceColumn, sourceLine, sourceName )
 
 newtype ASTMeta = ParserMeta SourcePos
     deriving (Eq, Ord)

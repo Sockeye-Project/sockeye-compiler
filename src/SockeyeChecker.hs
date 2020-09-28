@@ -20,8 +20,9 @@ module SockeyeChecker
     (checkSockeye) where
 
 import SockeyeChecks
+    ( runChecks, CheckFailure(..), Checks, FailedChecks )
 
-import SockeyeASTMeta
+--import SockeyeASTMeta
 import qualified SockeyeParserAST as ParseAST
 import qualified SockeyeSymbolTable as ST
 import qualified SockeyeAST as AST

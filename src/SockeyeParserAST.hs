@@ -19,9 +19,9 @@ module SockeyeParserAST
     , module SockeyeAST
     ) where
 
-import Data.Map (Map)
+import Data.Map ( Map )
 
-import SockeyeASTMeta
+import SockeyeASTMeta ( ASTMeta, MetaAST(..) )
 
 import SockeyeSymbolTable
     ( NodeType(NodeType)

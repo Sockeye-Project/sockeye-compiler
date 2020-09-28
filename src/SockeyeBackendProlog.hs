@@ -25,14 +25,34 @@
 module SockeyeBackendProlog
 ( compile ) where
 
-import Data.Char
-import Data.List
-import Data.Maybe (catMaybes)
-import Text.Printf
-import Control.Exception (Exception)
+import Data.Char ( isAlphaNum, isLower, isLetter )
+import Data.List ( intercalate )
+import Data.Maybe ( catMaybes )
+import Text.Printf ( printf )
+import Control.Exception ( Exception )
 import Control.Monad.State.Strict
+    ( MonadState(get), State, modify, runState )
 
-import PrologAST 
+import PrologAST
+    ( ModuleParameter(paramName),
+      PropertyExpr(..),
+      NamedConstant(..),
+      PlNaturalExpr(Literal, SockeyeVariable, BitLimit, Concat, Slice,
+                    Multiplication, Subtraction, Addition),
+      PlRegionSpec(regProp, regBlock, regNode),
+      PlNameSpec(PlNameSpec),
+      PlQualifiedRef(PlQualifiedRef),
+      PlImmediate(..),
+      PlDefinition(PlForall, PlInstantiates, PlConfOverlays, PlOverlays,
+                   PlTranslate, PlAccepts, PlModuleTag),
+      PlBody(definitions, extraPred),
+      PlExtraPred(PlIsPred, PlMultiDValues, PlValues),
+      PlMultiDSet(..),
+      PlNaturalSet(..),
+      PlNaturalRange(PlNaturalRange),
+      PlVar(..),
+      PlModule(body, parameters, constants, moduleName),
+      PlFile(..) ) 
 
 data PrologBackendException
   =  NYIException String

@@ -20,7 +20,7 @@ module PrologAST
     , module SockeyeParserAST
     )  where
 
-import SockeyeASTMeta
+import SockeyeASTMeta ( ASTMeta(..), MetaAST(..) )
 
 import SockeyeAST
     ( PropertyExpr(And, Or, Not, Property, True, False)
