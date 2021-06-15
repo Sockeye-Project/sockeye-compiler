@@ -57,6 +57,20 @@ test: build/test_report.txt
 
 ####
 #
+#  Sample query for performance 
+#
+####
+
+test_perf : src-pl/*.pl build/socs/x86_64_pc2.pl
+	eclipseclp -f src-pl/decoding_net5.pl \
+			   -f src-pl/decoding_net5_support.pl \
+			   -f src-pl/test-helpers.pl \
+			   -f build/socs/x86_64_pc2.pl \
+			   -f src-pl/test-perf.pl \
+			   -e "run_test."
+
+####
+#
 #  Colibri Test
 #
 ####

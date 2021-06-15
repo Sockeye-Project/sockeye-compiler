@@ -5,7 +5,7 @@
 module IOMMU {
     input memory (0 bits 40) IN
     output memory (0 bits 40) OUT
-    IN confOverlays OUT
+    IN overlays OUT
 }
 
 // Instantiate this module for a vanilla PCI device
@@ -81,7 +81,14 @@ module SYSTEM {
     PCIBUS overlays SYSBUS
 
     // Mappings from PCIBUS to PCI devices will be added dynamically
+    
     // Adding processes and MMUs will be dynamically
+    instance xphi of XEONPHI
+    xphi instantiates XEONPHI
+
+    SYSBUS maps [
+        (0x1000000000 to 0x11ffffffff) to xphi.IN at (0x000000000 to 0x1ffffffff)
+    ]
 }
 
 
@@ -96,7 +103,7 @@ module XEONPHI {
     IN overlays PHYS
 
     memory (0 bits 40) SMPT_IN
-    SMPT_IN confOverlays OUT // bits(34), SMPT remaps in 16GB blocks
+    SMPT_IN overlays OUT // bits(34), SMPT remaps in 16GB blocks
 
     memory (0 bits 16) MMIO
     MMIO accepts [(0x0 to 0xfffff)]
