@@ -12,6 +12,7 @@
 ########################################################################
 
 GHC=ghc
+ECLIPSE=eclipseclp
 ALL_TEST_OUTPUTS = $(patsubst socs/tests/%.soc,build/socs/tests/%.txt,$(wildcard socs/tests/*.soc))
 
 .PHONY: sockeye sockeye1 clean test_colibri
@@ -34,7 +35,7 @@ build/socs/%.pl : socs/%.soc bin/sockeye
 	./bin/sockeye -P $< -o $@
 
 build/socs/tests/%.txt : build/socs/tests/%.pl socs/tests/%.pl src-pl/*.pl
-	eclipseclp -f src-pl/decoding_net5.pl \
+	${ECLIPSE} -f src-pl/decoding_net5.pl \
 			   -f src-pl/decoding_net5_support.pl \
 			   -f src-pl/test-helpers.pl \
 			   -f $(word 2,$^)\
@@ -62,7 +63,7 @@ test: build/test_report.txt
 ####
 
 test_perf : src-pl/*.pl build/socs/x86_64_pc2.pl
-	eclipseclp -f src-pl/decoding_net5.pl \
+	${ECLIPSE} -f src-pl/decoding_net5.pl \
 			   -f src-pl/decoding_net5_support.pl \
 			   -f src-pl/test-helpers.pl \
 			   -f build/socs/x86_64_pc2.pl \
@@ -76,7 +77,7 @@ test_perf : src-pl/*.pl build/socs/x86_64_pc2.pl
 ####
 
 test_colibri : build/socs/colibri.pl
-	eclipseclp -f src-pl/decoding_net5.pl \
+	${ECLIPSE} -f src-pl/decoding_net5.pl \
 			   -f src-pl/decoding_net5_support.pl \
 			   -f src-pl/test-helpers.pl \
 			   -f build/socs/colibri.pl \
@@ -91,7 +92,7 @@ test_colibri : build/socs/colibri.pl
 
 build/pt/cpu_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_ptable.c: build/socs/ARMv8_FVP_Minimal.pl
 	mkdir -p build/pt
-	eclipseclp -f src-pl/decoding_net5.pl \
+	${ECLIPSE} -f src-pl/decoding_net5.pl \
 			   -f src-pl/decoding_net5_support.pl \
 			   -f src-pl/test-helpers.pl \
 			   -f build/socs/ARMv8_FVP_Minimal.pl \
@@ -110,7 +111,7 @@ test_pt: build/pt/cpu_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_ptable.c
 
 build/bootinfo/boot_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_boot_consts.c: build/socs/ARMv8_FVP_Minimal.pl
 	mkdir -p build/bootinfo
-	eclipseclp -f src-pl/decoding_net5.pl \
+	${ECLIPSE} -f src-pl/decoding_net5.pl \
 			   -f src-pl/decoding_net5_support.pl \
 			   -f src-pl/test-helpers.pl \
 			   -f build/socs/ARMv8_FVP_Minimal.pl \

@@ -6,7 +6,20 @@ In `socs` are all our sockeye definitions.
 `src-pl` contains the Prolog tools that use the sockeye compiler output.
 
 
-## Build
+## Dependencies and build
+This is tested on ubuntu 20.04, check out the `docker/Dockerfile`
+for required packages. In a nutshell you need to install 
+```sudo apt install libghc-aeson-dev libghc-missingh-dev```
+and download and install eclipseclp from eclipseclp.org. The
+Makefile assumes that you have a `eclipseclp` on your path. One way
+to achieve this is by downloading the binary distribution and setting
+up a syslink: 
+```
+curl https://eclipseclp.org/Distribution/CurrentRelease/7.0_54%20x86_64_linux%20Intel-64bit-Linux/eclipse_basic.tgz -o eclipse_basic.tgz
+tar xfvz eclipse_basic.tgz 
+ln -s /eclipse/lib/x86_64_linux/eclipse.exe /usr/bin/eclipseclp
+```
+
 To build the compiler run `make sockeye`.
 This will create the compiler binary in `bin/sockeye`.
 
