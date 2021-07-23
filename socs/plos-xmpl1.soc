@@ -1,0 +1,31 @@
+module Cpu {
+    memory (0 bits 32) BOOTLOADER
+    memory (0 bits 32) OS
+    memory (0 bits 32) PROC
+    output memory(0 bits 32) out
+ 
+    // Bootloader runs with MMU off
+    BOOTLOADER overlays out
+
+    // The OS has a 1:1 mapping in the upper half of the 32 bit address space
+    OS maps [
+        (0x80000000 bits 31) to out at (0 bits 31)
+    ] 
+
+    // A process that has a configurable view over the memory
+    PROC confOverlays out
+
+}
+
+module System {
+    memory (0 bits 32) MEMORY_BUS
+    MEMORY_BUS accepts [
+        (0 bits 30) // 1 GByte
+    ]
+    instance cpu of Cpu
+
+
+    cpu binds [
+        out to MEMORY_BUS
+    ]
+}

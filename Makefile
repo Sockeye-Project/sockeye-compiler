@@ -123,3 +123,6 @@ build/bootinfo/boot_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_boot_consts.c: bui
 
 test_bootinfo: build/bootinfo/boot_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_boot_consts.c
 	@echo "TODO: Test the output file: $<"
+
+plos_xmpl: build/socs/plos-xmpl1.pl
+	@echo "Example for SOSP compiled to $<"	
