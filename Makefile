@@ -100,7 +100,17 @@ build/pt/cpu_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_ptable.c: build/socs/ARMv
 			   -f src-ptgen/generate_page_table.pl \
 			   -e "gen_pt(\"ARMv8_FVP_Minimal\", \"ARMCortexA57x1_Cluster0.CPUDRIVER\" , \"src-ptgen/target/armv8/page_table.c.in \" , \"build/pt/cpu_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_ptable.c \", 0, \"t0sz=16\")."
 
-test_pt: build/pt/cpu_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_ptable.c
+build/pt/cpu_knc_e225_ptable.c: build/socs/knc_e225.pl
+	mkdir -p build/pt
+	${ECLIPSE} -f src-pl/decoding_net5.pl \
+			   -f src-pl/decoding_net5_support.pl \
+			   -f src-pl/test-helpers.pl \
+			   -f build/socs/knc_e225.pl \
+			   -f src-ptgen/target/k1om/page_table_generator.pl \
+			   -f src-ptgen/generate_page_table.pl \
+			   -e "gen_pt(\"PageTable_x86_XeonPhi\", \"BOOT\", \"src-ptgen/target/k1om/page_table.c.in \" , \"build/pt/cpu_knc_e225_ptable.c \", 0, \"skipEfi=true\")."
+
+test_pt: build/pt/cpu_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_ptable.c build/pt/cpu_knc_e225_ptable.c
 	@echo "TODO: test what's in the C file 8-)"
 
 ####

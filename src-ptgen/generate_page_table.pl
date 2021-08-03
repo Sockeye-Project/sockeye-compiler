@@ -63,6 +63,13 @@ pt_map(InNode, map(InBase, Size, OutAddr, DestNode, Prop)) :-
 pt_mappings(InNode, Mappings) :-
     findall(X,pt_map(InNode, X), Mappings).
 
+%target_arg_term("aaa=asd,aax=3", aaa("asd")) --> True
+target_arg_term(ArgStr,Term) :-
+    split_string(ArgStr,",","",Sp),
+    member(S,Sp),
+    split_string(S,"=","",[As,B]),
+    atom_string(A, As),
+    (number_string(BNum, B) -> Term =.. [A,BNum] ; Term =.. [A,B]).
 
 gen_pt(ModuleStr, InNodeStr, TemplateFile, OutFile, PTBase, TargetArg) :-
     printf("=== Generating Pagetable %p ===\n", [OutFile]),
@@ -80,8 +87,13 @@ gen_pt(ModuleStr, InNodeStr, TemplateFile, OutFile, PTBase, TargetArg) :-
     generate_pt_code(Template, Maps, PTBase, TargetArg, CodeNoEfi),
     !, printf("Code generation successful! Out = %s\n", [OutFile]),
     !,
-    efimap(InNode, EfiStr),
-    sprintf(Code, CodeNoEfi, [EfiStr]),
+    (target_arg_term(TargetArg, skipEfi("true")) ->
+        Code = CodeNoEfi
+    ;
+    (
+        efimap(InNode, EfiStr),
+        sprintf(Code, CodeNoEfi, [EfiStr])
+    )),
     !,
     split_string(OutFile,""," ",[OutPath]),
     write_file(OutPath,Code).
