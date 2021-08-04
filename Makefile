@@ -44,7 +44,7 @@ build/socs/tests/%.txt : build/socs/tests/%.pl socs/tests/%.pl src-pl/*.pl
 	mv TMP.TXT $@
 
 	
-build/test_report.txt: $(ALL_TEST_OUTPUTS)
+build/test_report.txt: test_pt $(ALL_TEST_OUTPUTS)
 	echo "Test Report:" > build/test_report.txt
 	echo "============" >> build/test_report.txt
 	for t in $(ALL_TEST_OUTPUTS) ; do\
@@ -100,22 +100,19 @@ build/pt/cpu_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_ptable.c: build/socs/ARMv
 			   -f src-ptgen/generate_page_table.pl \
 			   -e "gen_pt(\"ARMv8_FVP_Minimal\", \"ARMCortexA57x1_Cluster0.CPUDRIVER\" , \"src-ptgen/target/armv8/page_table.c.in \" , \"build/pt/cpu_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_ptable.c \", 0, \"t0sz=16\")."
 
-build/pt/cpu_knc_e225_ptable.c: build/socs/knc_e225.pl
+build/pt/cpu_knc_e225_ptable.c: build/socs/x86_64_pc2.pl
 	mkdir -p build/pt
 	${ECLIPSE} -f src-pl/decoding_net5.pl \
 			   -f src-pl/decoding_net5_support.pl \
 			   -f src-pl/test-helpers.pl \
-			   -f build/socs/knc_e225.pl \
+			   -f build/socs/x86_64_pc2.pl \
 			   -f src-ptgen/target/k1om/page_table_generator.pl \
 			   -f src-ptgen/generate_page_table.pl \
-			   -e "gen_pt_v1(\"PageTable_x86_XeonPhi\", \"BOOT\", \"src-ptgen/target/k1om/page_table.c.in \" , \"build/pt/cpu_knc_e225_ptable.c \", 0, \"skipEfi=true\")."
+			   -e "gen_pt_v1(\"XEONPHI\", \"BOOT\", \"src-ptgen/target/k1om/page_table.c.in \" , \"build/pt/cpu_knc_e225_ptable.c \", 0, \"skipEfi=true\")."
 
-#test_pt: build/pt/cpu_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_ptable.c build/pt/cpu_knc_e225_ptable.c
 test_pt: build/pt/cpu_knc_e225_ptable.c
-	@echo "TODO: test what's in the C file 8-)"
-
-diff_pt: build/pt/cpu_knc_e225_ptable.c ORIG.c
-	meld build/pt/cpu_knc_e225_ptable.c ORIG.c
+	diff test-ptgen/expected-xphi-pt.c build/pt/cpu_knc_e225_ptable.c
+	@echo "Xeon Phi page table correct!"
 
 ####
 #

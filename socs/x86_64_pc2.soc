@@ -102,33 +102,44 @@ module XEONPHI {
 
     IN overlays PHYS
 
+    // Generic Nodes
+
+    memory (0 bits 40) GDDR0
+    GDDR0 accepts [(0x000000000 to 0x0fedfffff) (mem)]
+
+    memory (0 bits 40) GDDR1
+    GDDR1 accepts [(0x0fee01000 to 0x1ffffffff) (mem)]
+
     memory (0 bits 40) SMPT_IN
     SMPT_IN overlays OUT // bits(34), SMPT remaps in 16GB blocks
 
     memory (0 bits 16) MMIO
-    MMIO accepts [(0x0 to 0xfffff)]
+    MMIO accepts [(0x0 to 0xfffff) (devreg)]
 
     memory (0 bits 40) PHYS
     PHYS maps [
+        (0x0000000000 to 0x00fedfffff) to GDDR0 at (0x000000000 to 0x0fedfffff);
+        (0x00fee01000 to 0x01ffffffff) to GDDR1 at (0x0fee01000 to 0x1ffffffff);
+        (0x08007D0000 bits 16) to MMIO at (0 bits 16);
         (0x8000000000 to 0xffffffffff) to SMPT_IN at (0x0 to 0x7fffffffff) // 512GB
     ]
-    PHYS accepts [
-        (0x000000000 to 0x1ffffffff);   // gddr
-        (0x08007C0000 to 0x08007Dffff)  // mmio
-    ]
 
+
+    // Description of one booting core
     memory (0 bits 40) LAPIC
-    LAPIC accepts [(0 to 0xfff)]
+    LAPIC accepts [(0 bits 12) (devreg)]
 
     memory (0 bits 40) K1OM_CORE
     K1OM_CORE maps [
-        (0xfee00000 to 0xfee00fff) to LAPIC at (0 to 0xfff)
+        (0x0 to 0xfedfffff) to PHYS at (0x0 to 0xfedfffff); 
+        (0xfee00000 bits 12) to LAPIC at (0 bits 12);
+        (0x00fee01000 to 0xffffffffff) to PHYS at (0x00fee01000 to 0xffffffffff)
     ]
 
-    K1OM_CORE overlays PHYS
-
-    memory (0 bits 40) DMA
-    DMA overlays PHYS
+    // Desired view for the booting page table
+    BOOT maps [
+        (0x0 to 0xffffffffff) to K1OM_CORE at (0x0 to 0xffffffffff)
+    ] 
 }
 
 // This module must have the same signature as PCI_IOMMU
