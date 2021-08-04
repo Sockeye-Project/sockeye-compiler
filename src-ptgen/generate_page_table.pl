@@ -98,6 +98,69 @@ gen_pt(ModuleStr, InNodeStr, TemplateFile, OutFile, PTBase, TargetArg) :-
     split_string(OutFile,""," ",[OutPath]),
     write_file(OutPath,Code).
 
+
+% Turns an array of map terms into a split of Numdevice
+%maps_to_nd(Maps, MemoryRecords, DeviceRecords).
+maps_to_nd([], [], []).
+maps_to_nd(
+    [map(VAddr, Size, PAddr, _, mem) | Ax],
+    [pt_memory(PAddr, Size) | Bx],
+    Cx) :-
+       maps_to_nd(Ax,Bx,Cx).
+maps_to_nd(
+    [map(VAddr, Size, PAddr, [Label], devreg) | Ax],
+    Bx,
+    [pt_device(PAddr, Size, Label) | Cx]) :-
+       maps_to_nd(Ax,Bx,Cx).
+
+
+% this is like gen_pt, but assumes the backend follows the v1 interface
+gen_pt_v1(ModuleStr, InNodeStr, TemplateFile, OutFile, PTBase, TargetArg) :-
+    printf("=== Generating Pagetable %p ===\n", [OutFile]),
+    decoding_net_load_module(ModuleStr),
+    node_str(InNode, InNodeStr),
+    %assert_node_exists(InNode),
+    translate(region(InNode,_,_), region(OutNode,_,_)),
+    printf("Generating PT between nodes: %p -> %p\n", [InNode, OutNode]),
+    pt_mappings(InNode, Maps),
+    printf("Using the following Mappings: \n", []),
+    checklist(pprint, Maps),
+
+    printf("\n", []),
+    split_string(TemplateFile,""," ",[TemplatePath]),
+    read_template(TemplatePath,Template),
+
+    !,
+    writeln("Maps"),
+    writeln(Maps),
+    maps_to_nd(Maps, MemoryRecords1, DeviceRecords1),
+    reverse(MemoryRecords1, MemoryRecords),
+    reverse(DeviceRecords1, DeviceRecords),
+    length(MemoryRecords, NumMemory),
+    length(DeviceRecords, NumDevices),
+    KernelOffsets = [0, 18446741874686296064],
+
+    writeln("MemoryRecords"),
+    writeln(MemoryRecords),
+    writeln("DeviceRecords"),
+    writeln(DeviceRecords),
+
+    generate_pt_code(Template, NumMemory, NumDevices, MemoryRecords, DeviceRecords,
+        KernelOffsets, Code),
+
+    !, printf("Code generation successful! Out = %s\n", [OutFile]),
+    %!,
+    %(target_arg_term(TargetArg, skipEfi("true")) ->
+    %    Code = CodeNoEfi
+    %;
+    %(
+    %    efimap(InNode, EfiStr),
+    %    sprintf(Code, CodeNoEfi, [EfiStr])
+    %)),
+    %!,
+    split_string(OutFile,""," ",[OutPath]),
+    write_file(OutPath,Code).
+
 %%%%%%%%%%%%%%
 %% BootInfo %%
 %%%%%%%%%%%%%%

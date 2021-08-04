@@ -108,10 +108,14 @@ build/pt/cpu_knc_e225_ptable.c: build/socs/knc_e225.pl
 			   -f build/socs/knc_e225.pl \
 			   -f src-ptgen/target/k1om/page_table_generator.pl \
 			   -f src-ptgen/generate_page_table.pl \
-			   -e "gen_pt(\"PageTable_x86_XeonPhi\", \"BOOT\", \"src-ptgen/target/k1om/page_table.c.in \" , \"build/pt/cpu_knc_e225_ptable.c \", 0, \"skipEfi=true\")."
+			   -e "gen_pt_v1(\"PageTable_x86_XeonPhi\", \"BOOT\", \"src-ptgen/target/k1om/page_table.c.in \" , \"build/pt/cpu_knc_e225_ptable.c \", 0, \"skipEfi=true\")."
 
-test_pt: build/pt/cpu_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_ptable.c build/pt/cpu_knc_e225_ptable.c
+#test_pt: build/pt/cpu_ARMv8_FVP_Minimal_ARMCortexA57x1_Cluster0_ptable.c build/pt/cpu_knc_e225_ptable.c
+test_pt: build/pt/cpu_knc_e225_ptable.c
 	@echo "TODO: test what's in the C file 8-)"
+
+diff_pt: build/pt/cpu_knc_e225_ptable.c ORIG.c
+	meld build/pt/cpu_knc_e225_ptable.c ORIG.c
 
 ####
 #

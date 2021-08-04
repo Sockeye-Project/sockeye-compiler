@@ -5,7 +5,7 @@ module PageTable_x86_XeonPhi {
     GDDR0 accepts [(0x000000000 to 0x0fedfffff) (mem)]
 
     memory (0 bits 40) GDDR1
-    GDDR1 accepts [(0x0fee01000 to 0x3ffffffff) (mem)]
+    GDDR1 accepts [(0x0fee01000 to 0x1ffffffff) (mem)]
 
     memory (0 bits 12) LAPIC
     LAPIC accepts [(0 bits 12) (devreg)]
@@ -16,7 +16,7 @@ module PageTable_x86_XeonPhi {
     memory (0 bits 40) KNC_SOCKET
     KNC_SOCKET maps [
         (0x0000000000 to 0x00fedfffff) to GDDR0 at (0x000000000 to 0x0fedfffff);
-        (0x00fee01000 to 0x03ffffffff) to GDDR1 at (0x0fee01000 to 0x3ffffffff);
+        (0x00fee01000 to 0x01ffffffff) to GDDR1 at (0x0fee01000 to 0x1ffffffff);
         (0x08007D0000 bits 16) to MMIO at (0 bits 16)
     ]
 
@@ -29,5 +29,11 @@ module PageTable_x86_XeonPhi {
 
     BOOT maps [
         (0x0 to 0xffffffffff) to K1OM_CORE at (0x0 to 0xffffffffff)
+    ] 
+
+    CPUDRIVER maps [
+        (0x0 to 0xffffffffff) to K1OM_CORE at (0x0 to 0xffffffffff);
+        // Kernel Window
+        (0xfffffe0000000000 to 0xfffffeffffffffff) to K1OM_CORE at (0x0 to 0xffffffffff)
     ] 
 }
